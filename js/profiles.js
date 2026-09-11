@@ -14,6 +14,7 @@
   function cameraDefaults(delta) {
     return {
       patio:  { range: 215 - delta, scale: 1, spot: 30 },
+      green:  { range: 120 - delta, spot: 45 },
       quaker: { range: 70  - delta, spot: 45 },
       burnt:  { range: 235 - delta, spot: 60 }
     };
@@ -29,6 +30,7 @@
       createdAt: opts.createdAt || Date.now(),
       F: cameraDefaults(0),
       B: cameraDefaults(FRONT_DELTA),
+      categories: { A: true, B: false, C: true, D: true, E: false, F: false },
       clean: { period: 5, interval: 5 },
       chute: 50
     };
@@ -183,6 +185,17 @@
     },
 
     displayName: function (p) { return '[' + p.mode + '] ' + p.name; },
+
+    serial: function (p) {
+      var list = load().profiles, sn = 0;
+      list.forEach(function (x, i) { if (x.id === p.id) sn = i + 1; });
+      return sn;
+    },
+
+    /* Title-bar form used on most screens: [S/N:4] [Roasted] WD */
+    titleName: function (p) {
+      return '[S/N:' + Profiles.serial(p) + '] ' + Profiles.displayName(p);
+    },
 
     factoryReset: function () {
       state = seed();

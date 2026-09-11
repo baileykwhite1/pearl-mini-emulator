@@ -17,9 +17,11 @@ what Supervisor mode unlocks — are much easier to learn somewhere nothing is a
 
 ## What it does
 
-Every screen an operator touches is here: Home, Sensitivity Regulation, Dust Cleaning
-Settings, Chute Settings, File Selection, Valve Test, and the operation history,
-service and network screens behind the dock icons.
+Every screen an operator touches is here: Home, the nine-tile Menu, Sensitivity
+Regulation, Dust Cleaning Setting, Feed Setting, File Selection, Valve Test, View Image,
+and the operation history, service and network screens behind the dock icons. Behind
+Supervisor mode you can also reach Camera Setting (white balance), System Setting and
+the category/parameter configuration.
 
 Press **Start** and coffee flows through the sorting chamber. Beans are scanned against
 the loaded profile, the ejectors fire, and the counters show what ended up in each
@@ -35,19 +37,33 @@ while it runs and you see the result within a few hundred beans.
 3. **Turn off dust cleaning.** Set the Clean Interval to 0 and keep running. The glass
    fouls, the cameras start misreading, and yield drops even though nothing else changed.
 
+4. **Switch on a category you do not need.** Turn `B Green` on in the category
+   screen and squeeze its Range. You start rejecting good coffee for a defect that
+   was never in the batch.
+
 ### Supervisor mode
 
-The person icon asks for the machine date in `YYYYMMDD` format, exactly as on a real
-Pearl Mini. Overwrite, Delete, Rename and Lock only appear once you are signed in.
+The person icon opens the Operator panel. Touch the field and a numeric keypad asks
+for the machine date in `YYYYMMDD` format, exactly as on a real Pearl Mini; the field
+then reads Supervisor and the green tick applies it. Overwrite, Delete, Rename and Lock
+only appear once you are signed in.
+
+### Why A, C and D?
+
+Sensitivity Regulation shows `A Patio`, `C Quaker` and `D Burnt` with a gap in the
+lettering. The machine has six category slots and coffee only uses three — `B Green`,
+`E` and `F` are switched off. You can see and change that in File Selection →
+Categories.
 
 The floppy-disk icon deliberately does **not** save your profile — same as the machine.
 Profiles are only written by **Overwrite File** in File Selection.
 
 ## What it does not do
 
-System Settings, Camera Settings, Background Plate Settings and Light Settings are
-technician calibration screens. They are deliberately left out: on a real machine
-changing them causes sorting problems that need a technician visit to put right.
+Camera Setting and System Setting are reproduced but **read-only**, behind a warning:
+on a real machine changing them causes sorting problems that need a technician visit to
+put right. Background Plate Setting, AI Mode, and the label picker behind the parameter
+table are not reproduced at all.
 
 Sorting behaviour is modelled, not measured. Defaults come from a technician-configured
 machine, but the numbers a real profile needs depend on the coffee in front of you.
@@ -73,6 +89,10 @@ Built from the SOVDA knowledge base:
 - [Managing Pearl Mini Profiles](https://knowledge.sovdacoffee.com/file-selection-menu)
 - [Pearl Mini Specification Sheet](https://knowledge.sovdacoffee.com/pearl-mini-specification-sheet)
 - [Pearl Mini Uncrate and Assembly Guide](https://knowledge.sovdacoffee.com/pearl-mini-uncrate-and-assembly-guide)
+
+…and from HMI screenshots of a commissioned machine, which is where the menu layout,
+the Operator keypad, the camera screens, System Setting and the category configuration
+come from.
 
 [`docs/BEHAVIOUR.md`](docs/BEHAVIOUR.md) maps each emulated behaviour back to the
 article it came from.

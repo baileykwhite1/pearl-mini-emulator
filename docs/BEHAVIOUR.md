@@ -14,8 +14,16 @@ it, reproduced exactly:
 | P2 / Scale | Scale | `Scale` |
 | P4 / Spot | Spot Size | `Spot` |
 | Category A — Black White / White / Stone / Patio | Patio | `A Patio` |
+| Category B — Green | (not covered) | `B Green`, switched off |
 | Category C — Red Green / Quaker | Quaker | `C Quaker` |
 | Category D — Black / Dark / Burnt | Burnt | `D Burnt` |
+| Categories E and F | (not covered) | present, unnamed, switched off |
+
+The machine has six category slots, A–F. Coffee runs A, C and D with B, E and F
+switched off — which is why Sensitivity Regulation shows a gap in the lettering
+rather than three adjacent columns. The emulator drives its Sensitivity columns
+from those switches, so turning B on adds a `B Green` column exactly as the
+machine would.
 
 ## Sorting
 
@@ -99,8 +107,99 @@ feed settings, forced cleaning cycle.
 used on the Pearl Mini. AI Mode is not implemented; the manual does not recommend its
 use at present.
 
+## Menu
+
+The menu is a 3×3 grid of icon tiles, named exactly as the machine names them:
+
+| | | |
+|---|---|---|
+| Sensitivity Regulation | Dust Cleaning Setting | Feed Setting |
+| File Selection | Artificial Intelligence | Valve Test |
+| Camera Setting | Background Plate Setting | System Setting |
+
+Two naming notes. The tile reads **Feed Setting**, while the user manual calls
+the same screen "Chute Settings" — the panel on it is legended *Chute Vibrator*.
+And there is no top-level *Light Setting*: Light is a tab inside System Setting →
+Port Setting, though the manual groups it with the other calibration screens.
+
+**Artificial Intelligence** is a tile in its own right. The manual states AI Mode
+is experimental and not currently recommended, so the emulator shows that message
+rather than reproducing any behaviour.
+
+## User levels
+
+| Behaviour | Source |
+|---|---|
+| The person icon opens a panel with a single field reading `Operator` and a green tick | HMI screenshots |
+| Touching the field opens a numeric keypad titled "Please enter password." | HMI screenshots |
+| Keypad layout is 1-2-3 / Cancel, 4-5-6 / Clear, 7-8-9 / Confirm, . 0 # | HMI screenshots |
+| Password is the machine date in `YYYYMMDD` | User Manual, *Creating and Saving Profiles* |
+| After a correct password the field reads `Supervisor`; the green tick applies it | User Manual; HMI screenshots |
+| The person icon changes colour with the signed-in level | HMI screenshots |
+
+The icon appears green, blue, orange and red across the screenshots, so there are
+more levels than the two the manual describes. The emulator implements only the
+two it can source — Operator (green) and Supervisor (blue) — and uses orange on
+System Setting to match what that screen shows. **[model]**
+
+## Camera screens
+
+These are two different screens and it is worth keeping them apart:
+
+| Screen | Reached from | Contents |
+|---|---|---|
+| **View Image** | Sensitivity Regulation footer | The plain camera view: background plate, faint vertical streaking, and whatever coffee is passing. No readout, no sampling box, no controls. |
+| **Camera Setting** (white balance) | Menu tile, Supervisor | The same view plus a `T:` temperature readout, a drag-to-sample box that switches the readout to `R: G: B: T:`, the Red/Green/Blue gains, Auto Regulation and Reference Value. |
+
+Reference values are seeded at R 242, G 242, B 243 and the gains at 373 / 448 /
+574, as shown in the screenshots. Camera Setting sits behind the Supervisor
+warning: on a real machine these belong to the technician's calibration.
+
+## System Setting
+
+Reproduced as a read-only view so the screen is recognisable without teaching
+anyone to change it.
+
+- Title carries the software version string, e.g. `JXO-VT-2.8-3527-20250419111509`
+- **Save&Restart** beside the floppy icon (disabled in the emulator)
+- Left navigation: General Setting, ON-OFF Settings, Port Setting, Camera Program,
+  PLC, Network, Fault Code
+- Port Setting tabs: COM, Vibrator Board, Background, SprayValve, Light
+- COM shows a Peripheral List with COM-A → `COM1 · ETM_V3x Connected` and
+  COM-B → `COM2 · [08]SETM_DIDO Connected`
+- Vibrator Board lists 16 rows; row 1 is `1 sorting · 1 · Chute Vibrator`, enabled
+
+Only COM and Vibrator Board carry real content. The rest state plainly that they
+are not reproduced.
+
+## Category and parameter configuration
+
+| Behaviour | Source |
+|---|---|
+| A–F category switches, with the enabled ones exposing P1–P4 slots | HMI screenshots |
+| A `File Information Modify_Label` button leads to the parameter table | HMI screenshots |
+| The table maps each category's P1–P4 to a displayed name | HMI screenshots |
+| For coffee: P1 → Range, P2 → Scale (Patio only), P4 → Spot | HMI screenshots |
+| Rows continue past F with E, F, U, V, W, X, Y | HMI screenshots |
+
+This is where `P1` comes to read `Range` and `P4` reads `Spot` on Sensitivity
+Regulation. On the machine each cell opens a label picker holding a long list of
+defect and parameter names, and a label can be added per language — the
+screenshots show `SOVDA-EN` as a language entry alongside English. The emulator
+shows the mapping read-only and does not reproduce the picker or the label editor.
+
+**Navigation not verified.** The screenshots do not show how these screens are
+reached. The emulator puts them behind a `Categories` button in File Selection
+under Supervisor mode, because the screens are titled with a profile name. If the
+real path is different, this is the thing in the emulator most likely to be wrong.
+
 ## Deliberately not modelled
 
-Physical procedures — uncrating, assembly, air filter changes, Teflon fin replacement,
-recommissioning intervals — along with machine specifications, capacities and site
-requirements. Those live in the knowledge base, which is the authority for all of them.
+Physical procedures — uncrating, assembly, air filter changes, Teflon fin
+replacement, recommissioning intervals — along with machine specifications,
+capacities and site requirements. Those live in the knowledge base, which is the
+authority for all of them.
+
+Within the software: the label picker and its on-screen keyboard, AI Mode
+behaviour, Background Plate Setting, and the General Setting, ON-OFF Settings,
+Camera Program, PLC, Network and Fault Code panels.

@@ -19,6 +19,14 @@
     selectedFileId: null,
     ejectorNumber: 1,
     testSpeed: 100,
+    cam: {
+      side: 'F', num: 1, zoom: 1, sampled: false, box: null,
+      r: 65, g: 93, b: 255, temp: 7.7,
+      gain: { r: 373, g: 448, b: 574 },
+      ref:  { r: 242, g: 242, b: 243 }
+    },
+    sysNav: 'Port Setting',
+    sysTab: 'COM',
     log: [],
     sim: new Simulator()
   };
@@ -52,7 +60,11 @@
   }
 
   /* ---------------- helpers ---------------- */
-  function title() { return Profiles.displayName(Profiles.working); }
+  function title() { return Profiles.titleName(Profiles.working); }
+
+  /* The person icon runs through several colours on a real machine as the
+     signed-in level changes. Operator is green; Supervisor is blue. */
+  function personColour() { return M.supervisor ? 'var(--blue)' : 'var(--hmi-green)'; }
 
   function toggleLamp(which) {
     if (which === 'Valve') M.valve = !M.valve;
@@ -69,24 +81,96 @@
       });
       return;
     }
-    UI.prompt(
-      'Operator',
-      'Enter the Supervisor password. On the real machine this is the date set on the machine in ' +
-      '<strong>YYYYMMDD</strong> format.',
-      '',
-      {
-        password: true, numeric: true, okLabel: 'Confirm',
-        validate: function (v) {
-          if (v !== todayPassword()) return 'Incorrect password.';
-          return null;
+    openUserPanel();
+  }
+
+  /* The machine shows a single-field panel with a green tick. Touching the
+     field opens a numeric keypad; the password is the machine date, YYYYMMDD. */
+  function openUserPanel() {
+    var chosen = 'Operator';
+    var overlay = el('div', { class: 'dialog-backdrop open', id: 'user-overlay' });
+
+    function close() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    var field = el('div', { class: 'field', text: chosen, onclick: askPassword });
+
+    function askPassword() {
+      numericKeypad('Please enter password.').then(function (code) {
+        if (code === null) return;
+        if (code !== todayPassword()) {
+          UI.toast('Incorrect password.', true);
+          return;
         }
-      }
-    ).then(function (v) {
-      if (v === null) return;
-      M.supervisor = true;
-      logEvent('Supervisor mode entered');
-      UI.toast('Supervisor');
-      render();
+        chosen = 'Supervisor';
+        field.textContent = chosen;
+        UI.toast('Supervisor — press the green tick to confirm.');
+      });
+    }
+
+    overlay.appendChild(el('div', { class: 'userpanel' }, [
+      el('div', { class: 'bar' }),
+      el('div', { class: 'inner' }, [
+        field,
+        el('button', { class: 'ok', title: 'Confirm', onclick: function () {
+          close();
+          if (chosen === 'Supervisor') {
+            M.supervisor = true;
+            logEvent('Supervisor mode entered');
+          }
+          render();
+        } })
+      ])
+    ]));
+
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    document.getElementById('stage').appendChild(overlay);
+  }
+
+  /* Touchscreen numeric keypad, laid out as on the machine. */
+  function numericKeypad(titleText) {
+    return new Promise(function (resolve) {
+      var value = '';
+      UI.showDialog(function (box) {
+        box.className = 'dialog keypad';
+        box.appendChild(el('div', { class: 'kp-title', text: titleText }));
+        var display = el('div', { class: 'kp-display' });
+        box.appendChild(display);
+
+        function refresh() { display.textContent = value.replace(/./g, '*'); }
+        function push(ch) { if (value.length < 16) { value += ch; refresh(); } }
+
+        function key(label, onclick, cls) {
+          var b = el('button', { class: 'btn' + (cls ? ' ' + cls : ''), text: label, onclick: onclick });
+          return b;
+        }
+
+        var keys = el('div', { class: 'kp-keys' }, [
+          key('1', function () { push('1'); }), key('2', function () { push('2'); }),
+          key('3', function () { push('3'); }),
+          key('Cancel', function () { finish(null); }),
+
+          key('4', function () { push('4'); }), key('5', function () { push('5'); }),
+          key('6', function () { push('6'); }),
+          key('Clear', function () { value = ''; refresh(); }),
+
+          key('7', function () { push('7'); }), key('8', function () { push('8'); }),
+          key('9', function () { push('9'); }),
+          key('Confirm', function () { finish(value); }, 'tall'),
+
+          key('.', function () { push('.'); }), key('0', function () { push('0'); }),
+          key('#', function () { push('#'); })
+        ]);
+        box.appendChild(keys);
+
+        function finish(v) {
+          box.className = 'dialog';
+          UI.closeDialog();
+          resolve(v);
+        }
+        refresh();
+      });
     });
   }
 
@@ -172,35 +256,63 @@
     ]);
   };
 
-  /* ---- Menu ---- */
+  /* ---- Menu ----
+     Nine glossy tiles in a 3x3 grid, named exactly as the machine names them.
+     Note "Feed Setting" (the manual calls the same screen "Chute Settings")
+     and that Light Setting is not a top-level entry -- it is a tab inside
+     System Setting > Port Setting. */
   var MENU = [
-    { label: 'Sensitivity Regulation', to: 'sensitivity' },
-    { label: 'Dust Cleaning Settings', to: 'cleaning' },
-    { label: 'Chute Settings', to: 'chute' },
-    { label: 'File Selection', to: 'files' },
-    { label: 'Valve Test', to: 'valvetest' },
-    { label: 'System Settings', locked: true },
-    { label: 'Camera Settings', locked: true },
-    { label: 'Background Plate Settings', locked: true },
-    { label: 'Light Settings', locked: true }
+    { label: 'Sensitivity Regulation', icon: 't-sensitivity', to: 'sensitivity' },
+    { label: 'Dust Cleaning Setting',  icon: 't-clean',       to: 'cleaning' },
+    { label: 'Feed Setting',           icon: 't-feed',        to: 'chute' },
+    { label: 'File Selection',         icon: 't-file',        to: 'files' },
+    { label: 'Artificial Intelligence',icon: 't-ai',          to: 'ai' },
+    { label: 'Valve Test',             icon: 't-valve',       to: 'valvetest' },
+    { label: 'Camera Setting',         icon: 't-camera',      to: 'whitebalance', warn: true },
+    { label: 'Background Plate Setting', icon: 't-bgplate',   protected: true },
+    { label: 'System Setting',         icon: 't-system',      to: 'system', supervisor: true }
   ];
 
   screens.menu = function () {
     var tiles = MENU.map(function (m) {
-      var kids = [el('span', { text: m.label })];
-      if (m.locked) kids.push(el('span', { class: 'lock-note', text: 'Supervisor' }));
+      var kids = [icon(m.icon), el('span', { text: m.label })];
+      if (m.protected || m.supervisor || m.warn) {
+        kids.push(el('span', { class: 'tile-note', text: 'Supervisor' }));
+      }
       return el('button', {
-        class: 'menu-tile' + (m.locked ? ' locked' : ''),
+        class: 'menu-icon',
         onclick: function () {
-          if (m.locked) return openProtected(m.label);
+          if (m.protected) return openProtected(m.label);
+          if (m.warn) return openWithWarning(m.label, m.to);
+          if (m.supervisor && !M.supervisor) {
+            UI.alert(m.label, 'This screen requires Supervisor mode. Use the person icon to sign in.');
+            return;
+          }
           go(m.to);
         }
       }, kids);
     });
     return el('div', { class: 'screen active' }, stdChrome({ back: 'home' }).concat([
-      el('div', { class: 'menu-grid' }, tiles)
+      el('div', { class: 'menu-icons' }, tiles)
     ]));
   };
+
+  function openWithWarning(name, to) {
+    if (!M.supervisor) {
+      UI.alert(name, 'This screen requires Supervisor mode. Use the person icon to sign in.');
+      return;
+    }
+    UI.confirm(name,
+      '<strong>White balance is part of the technician\u2019s calibration.</strong><br><br>' +
+      'Look, but do not change the gains or reference values on a real machine \u2014 a camera ' +
+      'that is out of balance will sort badly and needs a technician visit to put right.',
+      'I understand'
+    ).then(function (ok) {
+      if (!ok) return;
+      logEvent(name + ' opened in Supervisor mode', true);
+      go(to);
+    });
+  }
 
   function openProtected(name) {
     if (!M.supervisor) {
@@ -216,24 +328,54 @@
     ).then(function (ok) {
       if (ok) {
         UI.alert(name, 'This emulator deliberately does not reproduce ' + name +
-          '. On a real Pearl Mini these values belong to the technician’s calibration.');
+          '. On a real Pearl Mini these values belong to the technician\u2019s calibration.');
         logEvent(name + ' opened in Supervisor mode', true);
       }
     });
   }
 
-  /* ---- Sensitivity Regulation ---- */
+  /* ---- Artificial Intelligence ---- */
+  screens.ai = function () {
+    return el('div', { class: 'screen active' }, stdChrome({}).concat([
+      el('div', { class: 'info-body' }, [
+        el('p', { html: '<strong>AI Mode is an experimental feature.</strong>' }),
+        el('p', { style: 'margin-top:16px', html:
+          'SOVDA does not recommend using it at present. If you would like to learn more, contact ' +
+          'your Technical Brand Ambassador or the Service Department.' }),
+        el('p', { style: 'margin-top:16px;color:#8a8a8a;font-size:17px', html:
+          'The emulator does not reproduce AI Mode behaviour.' })
+      ])
+    ]));
+  };
+
+  /* ---- Sensitivity Regulation ----
+     Columns are driven by the A-F category switches. Coffee runs A, C and D
+     with B, E and F switched off, which is why the lettering has a gap. */
+  var CATEGORIES = [
+    { letter: 'A', name: 'Patio',  key: 'patio',  scale: true },
+    { letter: 'B', name: 'Green',  key: 'green' },
+    { letter: 'C', name: 'Quaker', key: 'quaker' },
+    { letter: 'D', name: 'Burnt',  key: 'burnt' },
+    { letter: 'E', name: '' },
+    { letter: 'F', name: '' }
+  ];
+
+  function activeCategories() {
+    var on = Profiles.working.categories || {};
+    return CATEGORIES.filter(function (c) { return c.key && on[c.letter]; });
+  }
+
   function camera() { return Profiles.working[M.sensTab]; }
 
-  function sensColumn(letter, name, key) {
+  function sensColumn(cat) {
     var cam = camera();
     var rows = [UI.spinner({
       label: 'Range', min: 0, max: 255,
-      get: function () { return cam[key].range; },
-      set: function (v) { cam[key].range = v; }
+      get: function () { return cam[cat.key].range; },
+      set: function (v) { cam[cat.key].range = v; }
     })];
 
-    if (key === 'patio') {
+    if (cat.scale) {
       rows.push(UI.spinner({
         label: 'Scale', min: 0, max: 3,
         get: function () { return cam.patio.scale; },
@@ -246,35 +388,31 @@
 
     var spot = UI.spinner({
       label: 'Spot', min: 1, max: 255,
-      get: function () { return cam[key].spot; },
-      set: function (v) { cam[key].spot = v; }
+      get: function () { return cam[cat.key].spot; },
+      set: function (v) { cam[cat.key].spot = v; }
     });
     spot.classList.add('sens-spot');
 
     return el('div', { class: 'sens-col' }, [
-      el('div', { class: 'sens-head', html: letter + '<br>' + name }),
+      el('div', { class: 'sens-head', html: cat.letter + '<br>' + cat.name }),
       el('div', { class: 'sens-rows' }, rows),
       spot
     ]);
   }
 
   screens.sensitivity = function () {
-    var body = el('div', { class: 'tab-body' }, [
-      el('div', { class: 'sens-cols' }, [
-        sensColumn('A', 'Patio', 'patio'),
-        sensColumn('C', 'Quaker', 'quaker'),
-        sensColumn('D', 'Burnt', 'burnt')
-      ])
-    ]);
+    var cols = activeCategories();
+    var grid = el('div', { class: 'sens-cols' }, cols.map(sensColumn));
+    grid.style.gridTemplateColumns = 'repeat(' + Math.max(1, cols.length) + ', 1fr)';
 
     return el('div', { class: 'screen active' }, stdChrome({}).concat([
       tabs('sensTab'),
-      body,
+      el('div', { class: 'tab-body' }, [grid]),
       footer([
         footerItem('Data Same', 'i-datasame', function () {
           UI.toast('Data Same is not used on the Pearl Mini.', true);
         }),
-        footerItem('View Image', 'i-viewimg', viewImage),
+        footerItem('View Image', 'i-viewimg', function () { go('viewimage'); }),
         footerItem('Feed Setting', 'i-chart', function () { go('chute'); }),
         M.sim.running
           ? footerItem('Stop', 'i-stop', stopSorting)
@@ -282,6 +420,246 @@
       ])
     ]));
   };
+
+  /* ---- View Image ----
+     Reached from the Sensitivity Regulation footer. This is the plain camera
+     view: the background plate and whatever coffee is passing it. No readout,
+     no sampling box and no calibration controls -- those belong to Camera
+     Setting (white balance), which is a different screen. */
+  screens.viewimage = function () {
+    var canvas = el('canvas', { width: 1040, height: 560 });
+    var view = el('div', { class: 'cam-view tall' }, [canvas]);
+
+    var node = el('div', { class: 'screen active' }, [
+      camToolbar('sensitivity'),
+      view,
+      el('button', {
+        class: 'footer-item', style: 'position:absolute;right:150px;bottom:16px',
+        onclick: M.sim.running ? stopSorting : startSorting
+      }, [icon(M.sim.running ? 'i-stop' : 'i-start')])
+    ]);
+
+    node._camCanvas = canvas;
+    drawCam(canvas, { box: false });
+    return node;
+  };
+
+  /* ---- Camera Setting (white balance) ----
+     Sample the background plate with a drag box and the readout switches from
+     the plain temperature line to R/G/B plus temperature. Technician territory:
+     the gains and reference values are part of calibration. */
+  screens.whitebalance = function () {
+    var canvas = el('canvas', { width: 1040, height: 518 });
+    var view = el('div', { class: 'cam-view' }, [canvas]);
+    var readout = el('div', { class: 'cam-readout' });
+
+    function refreshReadout() {
+      readout.className = 'cam-readout ' + (M.cam.sampled ? 'rgb' : 'plain');
+      readout.textContent = M.cam.sampled
+        ? 'R:' + pad3(M.cam.r) + '  G:' + pad3(M.cam.g) + '  B:' + pad3(M.cam.b) +
+          '  T:' + M.cam.temp.toFixed(1)
+        : 'T:' + M.cam.temp.toFixed(1);
+    }
+    refreshReadout();
+    view.appendChild(readout);
+
+    /* Drag to place the sample rectangle. */
+    var dragging = null;
+    view.addEventListener('mousedown', function (e) {
+      var r = view.getBoundingClientRect();
+      var sc = r.width / 1040;
+      dragging = { x: (e.clientX - r.left) / sc, y: (e.clientY - r.top) / sc };
+    });
+    view.addEventListener('mouseup', function (e) {
+      if (!dragging) return;
+      var r = view.getBoundingClientRect();
+      var sc = r.width / 1040;
+      var x2 = (e.clientX - r.left) / sc, y2 = (e.clientY - r.top) / sc;
+      var box = {
+        x: Math.min(dragging.x, x2), y: Math.min(dragging.y, y2),
+        w: Math.abs(x2 - dragging.x), h: Math.abs(y2 - dragging.y)
+      };
+      dragging = null;
+      if (box.w < 6 || box.h < 6) { box.w = 62; box.h = 300; box.x -= 31; box.y -= 150; }
+      M.cam.box = box;
+      sampleBox();
+      refreshReadout();
+      drawCam(canvas, { box: true });
+    });
+
+    var node = el('div', { class: 'screen active' }, [
+      camToolbar('menu'),
+      view,
+      el('div', { class: 'cam-footer' }, [
+        rgbBtn('Red', 'r'), rgbBtn('Green', 'g'), rgbBtn('Blue', 'b'),
+        el('button', { class: 'btn', text: 'Auto Regulation', onclick: autoRegulation }),
+        el('button', { class: 'btn', text: 'Reference Value', onclick: referenceValue })
+      ]),
+      el('button', {
+        class: 'footer-item', style: 'position:absolute;right:150px;bottom:6px',
+        onclick: M.sim.running ? stopSorting : startSorting
+      }, [icon(M.sim.running ? 'i-stop' : 'i-start')])
+    ]);
+
+    node._camCanvas = canvas;
+    node._camBox = true;
+    drawCam(canvas, { box: true });
+    return node;
+  };
+
+  /* Toolbar shared by both camera screens. */
+  function camToolbar(backTo) {
+    return el('div', { class: 'cam-toolbar' }, [
+      el('button', { class: 'tool', title: 'Stop', onclick: stopSorting }, [icon('i-camstop')]),
+      el('button', { class: 'tool', title: 'Zoom out', onclick: function () { zoom(-1); } },
+        [icon('i-zoomout')]),
+      el('div', { class: 'zoomlabel', text: M.cam.zoom + 'x' }),
+      el('button', { class: 'tool', title: 'Zoom in', onclick: function () { zoom(1); } },
+        [icon('i-zoomin')]),
+      el('div', { class: 'pager' }, [
+        el('button', { class: 'btn', text: '<', onclick: function () { camNum(-1); } }),
+        el('div', { class: 'pv', text: String(M.cam.num) }),
+        el('button', { class: 'btn', text: '>', onclick: function () { camNum(1); } })
+      ]),
+      el('div', { class: 'pager' }, [
+        el('button', { class: 'btn', text: '<', onclick: flipCam }),
+        el('div', { class: 'pv', text: M.cam.side }),
+        el('button', { class: 'btn', text: '>', onclick: flipCam })
+      ]),
+      el('div', { class: 'spacer' }),
+      el('button', { class: 'chrome-icon', title: 'Save parameters', onclick: onSaveIcon },
+        [icon('i-floppy')]),
+      el('button', { class: 'chrome-icon', title: 'Back',
+        onclick: function () { go(backTo); } }, [icon('i-back')])
+    ]);
+  }
+
+  function pad3(n) { return String(Math.round(n)).padStart(3, '0'); }
+
+  function rgbBtn(label, key) {
+    return el('button', { class: 'btn', onclick: function () {
+      UI.toast(label + ' gain is set by the technician during calibration.', true);
+    } }, [
+      el('div', { class: 'big', text: String(M.cam.gain[key]) }),
+      el('div', { text: label })
+    ]);
+  }
+
+  function zoom(dir) {
+    var steps = [1, 2, 4, 8];
+    var i = steps.indexOf(M.cam.zoom) + dir;
+    M.cam.zoom = steps[Math.max(0, Math.min(steps.length - 1, i))];
+    render();
+  }
+
+  function camNum(dir) {
+    M.cam.num = Math.max(1, Math.min(2, M.cam.num + dir));
+    render();
+  }
+
+  function flipCam() {
+    M.cam.side = M.cam.side === 'F' ? 'B' : 'F';
+    M.sensTab = M.cam.side;
+    render();
+  }
+
+  /* Sampling the background plate returns the plate colour plus sensor noise. */
+  function sampleBox() {
+    M.cam.r = 65 + (Math.random() - 0.5) * 6;
+    M.cam.g = 93 + (Math.random() - 0.5) * 6;
+    M.cam.b = 255;
+    M.cam.sampled = true;
+  }
+
+  function autoRegulation() {
+    UI.confirm('Auto Regulation',
+      'Run auto regulation on the ' + M.cam.side + ' camera?<br><br>' +
+      'This re-balances the camera against the background plate. On a real machine this is part ' +
+      'of the technician\u2019s calibration.', 'Run').then(function (ok) {
+      if (!ok) return;
+      M.cam.gain.r = 373 + Math.round((Math.random() - 0.5) * 8);
+      M.cam.gain.g = 448 + Math.round((Math.random() - 0.5) * 8);
+      M.cam.gain.b = 574 + Math.round((Math.random() - 0.5) * 8);
+      logEvent('Auto regulation run on ' + M.cam.side + ' camera', true);
+      UI.toast('Auto regulation complete');
+      render();
+    });
+  }
+
+  function referenceValue() {
+    UI.showDialog(function (box) {
+      box.appendChild(el('h2', { text: 'Reference Value' }));
+      var wrap = el('div', { style: 'display:flex;flex-direction:column;gap:16px;margin-bottom:20px' });
+      ['r', 'g', 'b'].forEach(function (k) {
+        var label = { r: 'Red', g: 'Green', b: 'Blue' }[k];
+        var val = el('div', { text: String(M.cam.ref[k]),
+          style: 'font-size:23px;min-width:60px;text-align:center' });
+        function setv(d) {
+          M.cam.ref[k] = Math.max(0, Math.min(255, M.cam.ref[k] + d));
+          val.textContent = String(M.cam.ref[k]);
+        }
+        wrap.appendChild(el('div', { style: 'display:flex;align-items:center;gap:14px' }, [
+          el('button', { class: 'btn', text: '<', style: 'width:78px;height:62px',
+            onclick: function () { setv(-1); } }),
+          el('div', { style: 'flex:1;text-align:center;font-size:20px' }, [
+            el('div', { text: label + ' Reference Value' }), val
+          ]),
+          el('button', { class: 'btn', text: '>', style: 'width:78px;height:62px',
+            onclick: function () { setv(1); } })
+        ]));
+      });
+      box.appendChild(wrap);
+      box.appendChild(el('div', { class: 'dialog-actions' }, [
+        el('button', { class: 'btn primary', text: 'Confirm', onclick: function () {
+          UI.closeDialog();
+          logEvent('Camera reference values changed', true);
+          UI.toast('Reference values set');
+        } })
+      ]));
+    });
+  }
+
+  function drawCam(canvas, opts) {
+    if (!canvas) return;
+    opts = opts || {};
+    var g = canvas.getContext('2d');
+    var W = canvas.width, H = canvas.height;
+
+    /* The background plate fills the frame: a deep blue with very faint
+       vertical streaking from the line-scan sensor. */
+    var grd = g.createLinearGradient(0, 0, W, 0);
+    grd.addColorStop(0, '#4038f2');
+    grd.addColorStop(0.45, '#4a44ff');
+    grd.addColorStop(1, '#3d35ee');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, W, H);
+
+    g.globalAlpha = 0.022;
+    for (var x = 0; x < W; x += 9) {
+      g.fillStyle = (x % 18 === 0) ? '#ffffff' : '#000000';
+      g.fillRect(x, 0, 3, H);
+    }
+    g.globalAlpha = 1;
+
+    /* Coffee passing the camera while the machine is running. */
+    if (M.sim.running) {
+      for (var i = 0; i < M.sim.beans.length; i++) {
+        var b = M.sim.beans[i];
+        if (b.y < 0 || b.y > 618) continue;
+        g.fillStyle = Simulator.COLOURS[b.type];
+        g.beginPath();
+        g.ellipse((b.x / 556) * W, (b.y / 618) * H,
+                  7 * M.cam.zoom, 5 * M.cam.zoom, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+
+    if (opts.box && M.cam.box) {
+      g.strokeStyle = '#f5e642';
+      g.lineWidth = 3;
+      g.strokeRect(M.cam.box.x, M.cam.box.y, M.cam.box.w, M.cam.box.h);
+    }
+  }
 
   function tabs(stateKey) {
     return el('div', { class: 'tabs' }, ['F', 'B'].map(function (t) {
@@ -429,6 +807,7 @@
       actions.push(actionBtn('Delete File', 78, doDelete, sel && sel.locked));
       actions.push(actionBtn('Rename', 78, doRename, sel && sel.locked));
       actions.push(actionBtn(sel && sel.locked ? 'Unlock' : 'Lock', 78, doLock));
+      actions.push(actionBtn('Categories', 78, function () { go('categories'); }));
     }
 
     actions.push(el('div', { class: 'spacer' }));
@@ -874,10 +1253,232 @@
     go('home');
   });
 
+  /* ---- System Setting ----
+     Reproduced as a read-only view. The manual is explicit that changing
+     anything here can cause serious sorting problems, so the emulator lets you
+     recognise the screen without teaching anyone to edit it. */
+  var SYS_NAV = ['General Setting', 'ON-OFF Settings', 'Port Setting',
+                 'Camera Program', 'PLC', 'Network', 'Fault Code'];
+  var SYS_TABS = ['COM', 'Vibrator Board', 'Background', 'SprayValve', 'Light'];
+  var SOFTWARE_VERSION = 'JXO-VT-2.8-3527-20250419111509';
+
+  screens.system = function () {
+    var nav = el('div', { class: 'sys-nav' }, SYS_NAV.map(function (n) {
+      return el('button', {
+        class: 'btn' + (M.sysNav === n ? ' active' : ''), text: n,
+        onclick: function () { M.sysNav = n; render(); }
+      });
+    }));
+
+    var panel;
+    if (M.sysNav === 'Port Setting') {
+      panel = el('div', { class: 'sys-panel' }, [
+        el('div', { class: 'sys-tabs' }, SYS_TABS.map(function (t) {
+          return el('button', {
+            class: 'tab' + (M.sysTab === t ? ' active' : ''), text: t,
+            onclick: function () { M.sysTab = t; render(); }
+          });
+        })),
+        el('div', { class: 'sys-body' }, portBody())
+      ]);
+    } else {
+      panel = el('div', { class: 'sys-panel' }, [
+        el('div', { class: 'sys-body' }, [
+          el('p', { style: 'font-size:20px', text: M.sysNav }),
+          el('p', { style: 'margin-top:18px;color:#b9b9b9;font-size:18px;line-height:1.6',
+            html: 'This is technician calibration territory. The emulator shows the navigation so ' +
+                  'you can recognise where you are, but does not reproduce the contents of ' +
+                  '<strong>' + M.sysNav + '</strong>.<br><br>' +
+                  'On a real Pearl Mini, changing these values can cause serious sorting ' +
+                  'performance issues and may require a technician visit to recalibrate.' })
+        ])
+      ]);
+    }
+
+    return el('div', { class: 'screen active' }, [
+      el('div', { class: 'sys-title', text: SOFTWARE_VERSION }),
+      el('div', { class: 'sys-saverestart' }, [
+        el('button', { class: 'chrome-icon', title: 'Save', onclick: function () {
+          UI.toast('Save & Restart is disabled in the emulator.', true);
+        } }, [icon('i-floppy')]),
+        el('div', { text: 'Save&Restart', style: 'font-size:21px' })
+      ]),
+      el('div', { class: 'chrome-icons' }, [
+        el('button', { class: 'chrome-icon', title: 'User', onclick: onUserIcon },
+          [(function () { var i2 = icon('i-person'); i2.style.color = '#e8a93a'; return i2; })()]),
+        el('button', { class: 'chrome-icon', title: 'Back',
+          onclick: function () { go('menu'); } }, [icon('i-back')])
+      ]),
+      nav, panel
+    ]);
+  };
+
+  function portBody() {
+    if (M.sysTab === 'COM') {
+      return [
+        el('div', { class: 'peripheral-bar', text: 'Peripheral List' }),
+        comGroup('COM-A', 'COM1', 'ETM_V3x Connected'),
+        comGroup('COM-B', 'COM2', '[08]SETM_DIDO Connected')
+      ];
+    }
+    if (M.sysTab === 'Vibrator Board') {
+      var rows = [];
+      for (var i = 1; i <= 16; i++) {
+        rows.push(el('div', { class: 'vib-row' }, [
+          el('div', { class: 'n', text: String(i) }),
+          el('div', { class: 'cell' + (i === 1 ? '' : ' blank'), text: i === 1 ? '1 sorting' : '' }),
+          el('div', { class: 'cell' + (i === 1 ? ' idx' : ' blank'), text: i === 1 ? '1' : '' }),
+          el('div', { class: 'cell' + (i === 1 ? '' : ' blank'),
+            text: i === 1 ? 'Chute Vibrator' : '' }),
+          rocker(i === 1, true)
+        ]));
+      }
+      return rows;
+    }
+    return [el('p', {
+      style: 'font-size:18px;color:#b9b9b9;line-height:1.6',
+      html: 'The <strong>' + M.sysTab + '</strong> tab is part of the technician\u2019s port ' +
+            'configuration and is not reproduced.'
+    })];
+  }
+
+  function comGroup(legend, port, status) {
+    return el('div', { class: 'com-group' }, [
+      el('div', { class: 'legend', text: legend }),
+      el('div', { class: 'com-row' }, [
+        el('button', { class: 'btn', text: port, onclick: function () {
+          UI.toast('Port configuration is read-only in the emulator.', true);
+        } }),
+        el('div', { class: 'status', text: status }),
+        el('button', { class: 'refresh', title: 'Refresh', onclick: function () {
+          UI.toast(port + ': ' + status);
+        } }, [icon('i-refresh')])
+      ])
+    ]);
+  }
+
+  /* A rocker switch. Pass readOnly for the technician screens. */
+  function rocker(on, readOnly, onToggle) {
+    var r = el('div', { class: 'rocker ' + (on ? 'is-on' : 'is-off') }, [
+      el('span', { class: 'mark on', text: on ? '\u2713' : '' }),
+      el('span', { class: 'mark off', text: on ? '' : '\u2715' }),
+      el('div', { class: 'knob' })
+    ]);
+    r.addEventListener('click', function () {
+      if (readOnly) { UI.toast('Read-only in the emulator.', true); return; }
+      if (onToggle) onToggle();
+    });
+    return r;
+  }
+
+  /* ---- Category configuration (A-F) ----
+     Reached from File Selection. Shows why Sensitivity Regulation displays
+     A, C and D with a gap: B, E and F are switched off for coffee. */
+  screens.categories = function () {
+    var on = Profiles.working.categories;
+
+    var cols = CATEGORIES.map(function (c) {
+      var plist = [];
+      if (c.key && on[c.letter]) {
+        ['P1', 'P2', 'P3', 'P4'].forEach(function (pn) {
+          var lit = (pn === 'P1') || (pn === 'P4') || (c.scale && pn === 'P2');
+          plist.push(el('div', { class: 'pbtn' + (lit ? ' lit' : ''), text: pn }));
+        });
+      }
+      return el('div', { class: 'cat-col' }, [
+        rocker(!!on[c.letter], !c.key, function () {
+          on[c.letter] = !on[c.letter];
+          logEvent('Category ' + c.letter + (on[c.letter] ? ' enabled' : ' disabled'));
+          render();
+        }),
+        el('div', { class: 'name', html: c.letter + (c.name ? '<br>' + c.name : '<br>&nbsp;') }),
+        el('div', { class: 'plist' }, plist)
+      ]);
+    });
+
+    return el('div', { class: 'screen active' }, stdChrome({ back: 'files' }).concat([
+      el('div', {
+        style: 'position:absolute;top:150px;left:0;right:0;text-align:center;font-size:21px',
+        text: 'ABCDEF'
+      }),
+      el('div', { class: 'cat-grid' }, cols),
+      el('div', {
+        style: 'position:absolute;left:118px;bottom:40px;right:118px;display:flex;' +
+               'align-items:center;gap:24px'
+      }, [
+        el('button', { class: 'btn', text: 'File Information Modify_Label',
+          style: 'width:340px;height:70px;font-size:19px',
+          onclick: function () { go('labels'); } }),
+        el('div', { style: 'flex:1;color:#8a8a8a;font-size:16px',
+          text: 'P1\u2013P4 are the four parameter slots each category exposes. ' +
+                'Their names come from the label table.' })
+      ])
+    ]));
+  };
+
+  /* ---- Parameter label table ----
+     Maps each category's P1-P4 slots to the names shown on Sensitivity
+     Regulation. This is how "P1" comes to read "Range" and "P4" reads "Spot". */
+  screens.labels = function () {
+    var LABELLED = {
+      A: ['Range', 'Scale', null, 'Spot'],
+      B: ['Range', null, null, 'Spot'],
+      C: ['Range', null, null, 'Spot'],
+      D: ['Range', null, null, 'Spot']
+    };
+    var rows = [el('div', { class: 'lab-row lab-head' }, [
+      el('div', { class: 'k', text: 'Parameters mode' }),
+      el('div', { class: 'cell', text: 'P1' }), el('div', { class: 'cell', text: 'P2' }),
+      el('div', { class: 'cell', text: 'P3' }), el('div', { class: 'cell', text: 'P4' })
+    ])];
+
+    CATEGORIES.forEach(function (c) {
+      var map = LABELLED[c.letter];
+      rows.push(el('div', { class: 'lab-row' }, [
+        el('div', { class: 'k', text: c.letter + (c.name ? ':' + c.name : '') }),
+        ['P1', 'P2', 'P3', 'P4'].map(function (pn, i) {
+          var named = map && map[i];
+          return el('div', {
+            class: 'cell ' + (named ? 'named' : 'unnamed'),
+            text: named || pn
+          });
+        })
+      ].reduce(function (a, v) { return a.concat(v); }, [])));
+    });
+
+    ['U', 'V', 'W', 'X', 'Y'].forEach(function (L) {
+      rows.push(el('div', { class: 'lab-row' }, [
+        el('div', { class: 'k', text: L }),
+        el('div', { class: 'cell unnamed', text: 'P1' }),
+        el('div', { class: 'cell unnamed', text: 'P2' }),
+        el('div', { class: 'cell unnamed', text: 'P3' }),
+        el('div', { class: 'cell unnamed', text: 'P4' })
+      ]));
+    });
+
+    return el('div', { class: 'screen active' }, stdChrome({ back: 'categories' }).concat([
+      el('div', {
+        style: 'position:absolute;top:148px;left:0;right:0;text-align:center;font-size:20px',
+        text: Profiles.working.name
+      }),
+      el('div', { class: 'lab-table' }, rows),
+      el('div', {
+        style: 'position:absolute;left:118px;right:118px;bottom:30px;color:#8a8a8a;font-size:16px',
+        text: 'Read-only. On the machine each cell opens a label picker, and the chosen name is ' +
+              'what Sensitivity Regulation displays for that slot.'
+      })
+    ]));
+  };
+
   /* ---------------- routing ---------------- */
   var currentNode = null;
 
   function go(name) {
+    /* A screen change always dismisses whatever dialog was open, so a prompt
+       can never linger over a screen it does not belong to. */
+    UI.closeDialog();
+    var stray = document.getElementById('user-overlay');
+    if (stray && stray.parentNode) stray.parentNode.removeChild(stray);
     M.screen = name;
     render();
   }
@@ -912,6 +1513,9 @@
     if (M.powered) {
       M.sim.step(dt, Profiles.working, GEOM);
       if (M.screen === 'run') drawRun(currentNode);
+      if ((M.screen === 'viewimage' || M.screen === 'whitebalance') && currentNode._camCanvas) {
+        drawCam(currentNode._camCanvas, { box: !!currentNode._camBox });
+      }
       updateLeds();
     }
     requestAnimationFrame(frame);

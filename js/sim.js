@@ -30,11 +30,14 @@
 
   /* Mean / sd of the defect signal each bean type produces in each category. */
   var SIGNATURE = {
-    good:   { patio: [158, 15], quaker: [28, 11],  burnt: [176, 15] },
-    quaker: { patio: [158, 15], quaker: [112, 20], burnt: [176, 15] },
-    patio:  { patio: [240, 9],  quaker: [30, 12],  burnt: [182, 15] },
-    burnt:  { patio: [150, 16], quaker: [40, 14],  burnt: [249, 5] }
+    good:   { patio: [158, 15], green: [46, 16], quaker: [28, 11],  burnt: [176, 15] },
+    quaker: { patio: [158, 15], green: [52, 17], quaker: [112, 20], burnt: [176, 15] },
+    patio:  { patio: [240, 9],  green: [44, 16], quaker: [30, 12],  burnt: [182, 15] },
+    burnt:  { patio: [150, 16], green: [40, 15], quaker: [40, 14],  burnt: [249, 5] }
   };
+
+  /* Which profile category letter drives which sorting category. */
+  var CATEGORY_LETTER = { patio: 'A', green: 'B', quaker: 'C', burnt: 'D' };
 
   var COLOURS = {
     good:   '#9a6b3f',
@@ -91,7 +94,10 @@
 
   /* Decide the fate of one bean against the current profile. */
   Simulator.prototype.judge = function (bean, profile) {
-    var cats = ['patio', 'quaker', 'burnt'];
+    var enabled = profile.categories || { A: true, C: true, D: true };
+    var cats = ['patio', 'green', 'quaker', 'burnt'].filter(function (c) {
+      return enabled[CATEGORY_LETTER[c]];
+    });
     // Dust on the glass adds reading noise; a heavily fouled window both misses
     // defects and throws out good coffee.
     var dustNoise = this.dust * 26;
@@ -123,6 +129,7 @@
       spot: clamp(gauss(90, 22), 18, 170),
       signal: {
         patio:  clamp(gauss(sig.patio[0], sig.patio[1]), 0, 255),
+        green:  clamp(gauss(sig.green[0], sig.green[1]), 0, 255),
         quaker: clamp(gauss(sig.quaker[0], sig.quaker[1]), 0, 255),
         burnt:  clamp(gauss(sig.burnt[0], sig.burnt[1]), 0, 255)
       },
@@ -249,6 +256,7 @@
     return msgs.join('<br><br>');
   };
 
+  Simulator.CATEGORY_LETTER = CATEGORY_LETTER;
   Simulator.EJECTORS = EJECTORS;
   Simulator.COLOURS = COLOURS;
   Simulator.TIME_SCALE = TIME_SCALE;
