@@ -1,0 +1,473 @@
+/* Pearl Mini HMI emulator — visual language taken from the SOVDA knowledge base screenshots */
+
+:root {
+  --hmi-green: #9ee86b;
+  --hmi-green-dim: #5e8f3e;
+  --bg: #000;
+  --panel: #0a0a0a;
+  --btn-border: #4a4a4a;
+  --btn-bg: #080808;
+  --btn-bg-active: #1d2a16;
+  --text: #ffffff;
+  --text-dim: #b9b9b9;
+  --red: #ff0000;
+  --blue: #2f9fe0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: #141414;
+  color: var(--text);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  overflow: hidden;
+}
+
+/* ---- Stage: fixed 1340x872 design surface, scaled to fit the viewport ---- */
+#stage-wrap {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+#stage {
+  width: 1340px;
+  height: 872px;
+  background: var(--bg);
+  position: relative;
+  transform-origin: center center;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* The thin white line at the top of every real screenshot */
+#stage::before {
+  content: "";
+  position: absolute;
+  top: 28px; left: 50%;
+  width: 340px; height: 2px;
+  background: #fff;
+  transform: translateX(-50%);
+  z-index: 50;
+}
+
+/* ---- Common chrome ---- */
+.clock {
+  position: absolute;
+  top: 36px; left: 112px;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: #e6e6e6;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  z-index: 40;
+}
+
+.titlebar {
+  position: absolute;
+  top: 82px; left: 140px;
+  font-size: 21px;
+  color: var(--text);
+  z-index: 40;
+}
+
+.chrome-icons {
+  position: absolute;
+  top: 66px; right: 110px;
+  display: flex;
+  gap: 34px;
+  align-items: center;
+  z-index: 40;
+}
+
+.chrome-icon {
+  width: 58px; height: 58px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  background: none; border: 0;
+  transition: transform 0.08s;
+}
+.chrome-icon:active { transform: scale(0.92); }
+.chrome-icon svg { width: 100%; height: 100%; }
+
+/* ---- Screen container ---- */
+.screen { position: absolute; inset: 0; display: none; }
+.screen.active { display: block; }
+
+/* ---- Home screen ---- */
+#screen-home .home-panel {
+  position: absolute;
+  top: 57px; left: 108px; right: 110px; bottom: 78px;
+  background:
+    radial-gradient(ellipse at 50% 35%, #2e2e2e 0%, #1b1b1b 55%, #121212 100%);
+  background-size: cover;
+}
+#screen-home .home-panel::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: radial-gradient(#ffffff0d 1px, transparent 1px);
+  background-size: 4px 4px;
+  pointer-events: none;
+}
+
+.wordmark {
+  position: absolute;
+  top: 160px; left: 0; right: 0;
+  text-align: center;
+  font-size: 76px;
+  font-weight: 300;
+  letter-spacing: 26px;
+  text-indent: 26px;
+  color: #f2f2f2;
+}
+.wordmark .macron {
+  display: block;
+  width: 62px; height: 3px;
+  background: #f2f2f2;
+  margin: 0 auto -22px;
+  position: relative; left: -84px;
+}
+
+.home-actions {
+  position: absolute;
+  top: 400px; left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 200px;
+}
+.home-action {
+  background: none; border: 0; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  color: var(--text); font-size: 21px;
+}
+.home-action svg { width: 92px; height: 92px; }
+.home-action:active { transform: scale(0.95); }
+
+.dock {
+  position: absolute;
+  left: 108px; right: 110px; bottom: 0; height: 78px;
+  background: linear-gradient(#1a1a1a, #0d0d0d);
+  border-top-left-radius: 14px; border-top-right-radius: 14px;
+  display: flex; align-items: center; justify-content: space-around;
+  padding: 0 40px;
+}
+.dock button {
+  background: none; border: 0; cursor: pointer;
+  width: 58px; height: 58px;
+}
+.dock button:active { transform: scale(0.9); }
+.dock svg { width: 100%; height: 100%; }
+
+/* ---- Generic bordered content frame (green outline) ---- */
+.frame {
+  position: absolute;
+  border: 2px solid var(--hmi-green);
+  background: var(--panel);
+}
+
+/* ---- Tabs (F / B) ---- */
+.tabs { position: absolute; top: 138px; left: 110px; display: flex; z-index: 5; }
+.tab {
+  width: 196px; height: 90px;
+  border: 2px solid #555; border-bottom: 0;
+  background: #050505; color: var(--text);
+  font-size: 22px; cursor: pointer;
+  display: grid; place-items: center;
+}
+.tab.active {
+  border-color: var(--hmi-green);
+  background: var(--panel);
+  position: relative; z-index: 2;
+}
+.tab-body {
+  position: absolute;
+  top: 226px; left: 110px; right: 110px; bottom: 122px;
+  border: 2px solid var(--hmi-green);
+  background: var(--panel);
+}
+
+/* ---- Spinner control ( < value > ) ---- */
+.spin { display: flex; align-items: stretch; gap: 8px; }
+.spin button, .btn {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 9px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 19px;
+  transition: background 0.08s;
+}
+.spin button:hover, .btn:hover { background: #1a1a1a; }
+.spin button:active, .btn:active { background: var(--btn-bg-active); }
+.spin button:disabled, .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.spin .arrow { width: 104px; }
+.spin .readout {
+  width: 122px;
+  border: 1px solid var(--btn-border);
+  border-radius: 9px;
+  display: grid; place-items: center;
+  padding: 8px 0;
+  line-height: 1.15;
+}
+.spin .readout .val { font-size: 25px; }
+.spin .readout .lbl { font-size: 18px; color: var(--text); }
+
+/* ---- Sensitivity regulation ---- */
+.sens-cols {
+  position: absolute; inset: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  padding: 24px 12px 0;
+}
+.sens-col { display: flex; flex-direction: column; align-items: center; }
+.sens-head { text-align: center; font-size: 21px; line-height: 1.35; margin-bottom: 20px; }
+.sens-rows { display: flex; flex-direction: column; gap: 24px; align-items: center; }
+.sens-spot { margin-top: auto; margin-bottom: 30px; }
+
+/* ---- Footer action bar ---- */
+.footerbar {
+  position: absolute;
+  left: 110px; right: 110px; bottom: 14px; height: 104px;
+  display: flex; align-items: center; justify-content: space-around;
+}
+.footer-item {
+  background: none; border: 0; cursor: pointer; color: var(--text);
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  font-size: 19px; min-width: 120px;
+}
+.footer-item svg { width: 44px; height: 44px; }
+.footer-item:active { transform: scale(0.94); }
+.footer-item:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Valve / Feed indicator lamps */
+.lamp {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 4px solid #9a9a9a;
+  background: #0a0a0a;
+  box-shadow: inset 0 0 6px #000;
+}
+.lamp.on { background: var(--red); border-color: #ff6a6a; box-shadow: 0 0 14px var(--red); }
+
+/* ---- Menu grid ---- */
+.menu-grid {
+  position: absolute;
+  top: 150px; left: 110px; right: 110px; bottom: 60px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 20px;
+}
+.menu-tile {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 22px;
+  cursor: pointer;
+  display: grid; place-items: center;
+  text-align: center;
+  padding: 10px;
+  position: relative;
+}
+.menu-tile:hover { background: #161616; }
+.menu-tile:active { background: var(--btn-bg-active); }
+.menu-tile.locked { color: #7b7b7b; border-color: #333; }
+.menu-tile .lock-note {
+  position: absolute; bottom: 10px; left: 0; right: 0;
+  font-size: 14px; color: var(--hmi-green-dim);
+}
+
+/* ---- File selection ---- */
+.file-table {
+  position: absolute;
+  top: 122px; left: 110px; width: 908px; bottom: 24px;
+  border: 1px solid #3a3a3a;
+  background: #050505;
+  display: flex; flex-direction: column;
+}
+.file-head {
+  display: grid; grid-template-columns: 64px 1fr 220px;
+  padding: 14px 16px; font-size: 20px; color: var(--text);
+  border-bottom: 1px solid #2a2a2a;
+}
+.file-rows { flex: 1; overflow-y: auto; }
+.file-row {
+  display: grid; grid-template-columns: 64px 1fr 220px;
+  padding: 11px 16px; font-size: 19px; cursor: pointer;
+  color: var(--text);
+}
+.file-row:hover { background: #181818; }
+.file-row.selected { background: var(--red); color: #fff; }
+.file-row .lockmark { color: var(--hmi-green); margin-left: 10px; font-size: 16px; }
+.file-row.selected .lockmark { color: #fff; }
+
+.file-actions {
+  position: absolute;
+  right: 110px; top: 122px; bottom: 24px; width: 206px;
+  display: flex; flex-direction: column;
+}
+.file-actions .btn { height: 104px; font-size: 21px; }
+.file-actions .spacer { flex: 1; }
+.file-actions .nav { display: flex; gap: 8px; }
+.file-actions .nav .btn { flex: 1; }
+
+/* ---- Dialog / prompt ---- */
+.dialog-backdrop {
+  position: absolute; inset: 0;
+  background: #000000cc;
+  display: none; place-items: center;
+  z-index: 100;
+}
+.dialog-backdrop.open { display: grid; }
+.dialog {
+  width: 660px;
+  background: #0c0c0c;
+  border: 2px solid var(--hmi-green);
+  border-radius: 10px;
+  padding: 34px 36px;
+}
+.dialog h2 { font-size: 24px; font-weight: 500; margin-bottom: 14px; }
+.dialog p { font-size: 19px; color: var(--text-dim); line-height: 1.5; margin-bottom: 22px; }
+.dialog input {
+  width: 100%; padding: 14px 16px; font-size: 22px;
+  background: #000; border: 1px solid var(--btn-border);
+  border-radius: 8px; color: var(--text); margin-bottom: 18px;
+}
+.dialog input:focus { outline: 0; border-color: var(--hmi-green); }
+.dialog .dialog-actions { display: flex; gap: 14px; justify-content: flex-end; }
+.dialog .btn { padding: 14px 30px; font-size: 20px; }
+.dialog .btn.primary { border-color: var(--hmi-green); color: var(--hmi-green); }
+.dialog .err { color: #ff6a6a; font-size: 18px; margin-bottom: 14px; min-height: 22px; }
+
+/* ---- Toast ---- */
+#toast {
+  position: absolute;
+  bottom: 130px; left: 50%; transform: translateX(-50%);
+  background: #0f1a09; border: 1px solid var(--hmi-green);
+  color: var(--hmi-green);
+  padding: 14px 26px; border-radius: 8px; font-size: 19px;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+  z-index: 120; max-width: 900px; text-align: center;
+}
+#toast.show { opacity: 1; }
+#toast.warn { background: #1f0d0d; border-color: #ff6a6a; color: #ff9a9a; }
+
+/* ---- Ejector LED bar ---- */
+.led-bar {
+  position: absolute;
+  display: flex; flex-direction: column; gap: 3px;
+  z-index: 6;
+}
+.led-row { display: flex; gap: 2px; }
+.led {
+  flex: 1; height: 9px;
+  background: #1b0505;
+  border-radius: 1px;
+}
+.led.fire { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+/* ---- Run / sorting screen ---- */
+.run-wrap { position: absolute; top: 130px; left: 110px; right: 110px; bottom: 120px; }
+.chamber {
+  position: absolute; top: 0; left: 0; width: 560px; bottom: 0;
+  border: 2px solid var(--hmi-green); background: #050505;
+  overflow: hidden;
+}
+.chamber canvas { display: block; width: 100%; height: 100%; }
+.stats {
+  position: absolute; top: 0; right: 0; left: 592px; bottom: 0;
+  border: 2px solid var(--hmi-green); background: var(--panel);
+  padding: 16px 20px; overflow-y: auto;
+}
+.stat-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 5px 0; border-bottom: 1px solid #1c1c1c; font-size: 16.5px;
+}
+.stat-row .k { color: var(--text-dim); }
+.stat-row .v { font-size: 19px; font-family: "SF Mono", Menlo, Consolas, monospace; }
+.stat-row .v.good { color: var(--hmi-green); }
+.stat-row .v.bad { color: #ff8080; }
+.stats h3 {
+  font-size: 15px; font-weight: 500; color: var(--hmi-green);
+  text-transform: uppercase; letter-spacing: 1.5px;
+  margin: 13px 0 4px;
+}
+.stats h3:first-child { margin-top: 0; }
+.advice {
+  margin-top: 14px; padding: 11px 13px;
+  border: 1px solid var(--hmi-green-dim); border-radius: 8px;
+  font-size: 15.5px; line-height: 1.45; color: var(--text-dim);
+}
+.advice strong { color: var(--hmi-green); font-weight: 500; }
+
+/* ---- Info / list screens ---- */
+.info-body {
+  position: absolute;
+  top: 130px; left: 110px; right: 110px; bottom: 40px;
+  border: 2px solid var(--hmi-green); background: var(--panel);
+  padding: 26px 30px; overflow-y: auto;
+  font-size: 19px; line-height: 1.6;
+}
+.info-body .log-line {
+  padding: 7px 0; border-bottom: 1px solid #1a1a1a;
+  font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 17px;
+}
+.info-body .log-line.err { color: #ff8080; }
+.info-body dl { display: grid; grid-template-columns: 260px 1fr; gap: 12px 20px; }
+.info-body dt { color: var(--text-dim); }
+
+/* ---- Chute vibrator ---- */
+.chute-panel {
+  position: absolute; top: 138px; left: 188px; right: 194px; height: 132px;
+  border: 1px solid #6a6a6a; border-radius: 4px;
+}
+.chute-panel .legend {
+  position: absolute; top: -13px; left: 16px; padding: 0 8px;
+  background: var(--bg); font-size: 20px;
+}
+.chute-panel .inner {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  padding: 0 34px; gap: 30px;
+}
+.chute-panel .sq {
+  width: 96px; height: 88px; font-size: 24px;
+}
+.chute-panel .num { font-size: 24px; width: 60px; text-align: center; }
+.chute-panel .bargraph {
+  flex: 1; height: 92px; background: #050505; border: 1px solid #2a2a2a;
+  position: relative; overflow: hidden;
+}
+.chute-panel .barfill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--hmi-green);
+  transition: width 0.12s;
+}
+
+/* ---- Scanline / off overlay ---- */
+#power-off {
+  position: absolute; inset: 0; background: #000;
+  display: none; place-items: center; z-index: 200;
+  cursor: pointer;
+}
+#power-off.on { display: grid; }
+#power-off .msg { color: #3a3a3a; font-size: 22px; letter-spacing: 3px; }
+
+/* ---- Help badge ---- */
+#help-btn {
+  position: absolute; top: 36px; right: 24px; z-index: 60;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--hmi-green-dim); background: #0a0a0a;
+  color: var(--hmi-green); font-size: 17px; cursor: pointer;
+}
+#help-btn:hover { background: #141f0d; }
+
+.help-body { font-size: 18px; line-height: 1.6; color: var(--text-dim); max-height: 560px; overflow-y: auto; }
+.help-body h3 { color: var(--hmi-green); font-size: 18px; margin: 18px 0 8px; font-weight: 500; }
+.help-body h3:first-child { margin-top: 0; }
+.help-body ul { margin: 0 0 10px 22px; }
+.help-body li { margin-bottom: 6px; }
+.help-body code {
+  background: #1a1a1a; padding: 2px 7px; border-radius: 4px;
+  font-size: 16px; color: var(--hmi-green);
+}

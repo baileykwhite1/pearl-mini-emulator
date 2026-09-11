@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pearl Mini Emulator — SOVDA</title>
+<meta name="description" content="A browser emulator of the SOVDA Pearl Mini colour sorter HMI, for training and familiarisation.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Reusable icon definitions -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Operator / supervisor person -->
+    <symbol id="i-person" viewBox="0 0 64 64">
+      <circle cx="32" cy="17" r="11" fill="currentColor"/>
+      <path d="M10 56c0-12 10-20 22-20s22 8 22 20z" fill="currentColor"/>
+      <path d="M32 36l-7 20h14z" fill="#f4f4f4"/>
+      <path d="M32 36l-4 6 4 5 4-5z" fill="#2b2b2b"/>
+    </symbol>
+    <!-- Floppy save -->
+    <symbol id="i-floppy" viewBox="0 0 64 64">
+      <rect x="6" y="8" width="52" height="48" rx="4" fill="#2f9fe0"/>
+      <rect x="16" y="8" width="32" height="20" fill="#eaf6ff"/>
+      <rect x="38" y="11" width="7" height="14" fill="#2b6f9e"/>
+      <rect x="14" y="34" width="36" height="22" rx="2" fill="#eaf6ff"/>
+      <path d="M40 34h18v22H40z" fill="#3fbf4a"/>
+      <path d="M49 38v10m0 0l-4-4m4 4l4-4" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </symbol>
+    <!-- Green back arrow -->
+    <symbol id="i-back" viewBox="0 0 64 64">
+      <path d="M34 14C16 14 10 30 10 44c0-8 10-13 24-13v11l20-16-20-16z"
+            fill="#5ec22a"/>
+    </symbol>
+    <!-- Network -->
+    <symbol id="i-network" viewBox="0 0 64 64">
+      <rect x="6" y="30" width="22" height="16" rx="2" fill="#2f6f9e"/>
+      <rect x="30" y="14" width="22" height="16" rx="2" fill="#3fa3d8"/>
+      <rect x="34" y="40" width="22" height="16" rx="2" fill="#3fa3d8"/>
+      <path d="M28 38h8v-16h-4M28 42h8v10h-4" stroke="#9ec8e0" stroke-width="2.5" fill="none"/>
+    </symbol>
+    <!-- Telephone -->
+    <symbol id="i-phone" viewBox="0 0 64 64">
+      <rect x="8" y="34" width="48" height="20" rx="4" fill="#2f7fb8"/>
+      <path d="M12 34c0-14 8-22 20-22s20 8 20 22" stroke="#6fc0e8" stroke-width="7" fill="none"/>
+      <circle cx="20" cy="44" r="4" fill="#0d3550"/><circle cx="32" cy="44" r="4" fill="#0d3550"/>
+      <circle cx="44" cy="44" r="4" fill="#0d3550"/>
+    </symbol>
+    <!-- Notepad / history -->
+    <symbol id="i-notepad" viewBox="0 0 64 64">
+      <rect x="10" y="12" width="38" height="44" rx="3" fill="#f0f0f0"/>
+      <path d="M16 22h26M16 30h26M16 38h18" stroke="#8a8a8a" stroke-width="3"/>
+      <path d="M40 44l14-14 6 6-14 14-8 2z" fill="#e0a020"/>
+      <path d="M38 52l8-2-6-6z" fill="#333"/>
+    </symbol>
+    <!-- File / folder search -->
+    <symbol id="i-file" viewBox="0 0 64 64">
+      <path d="M6 16h20l5 6h27v34H6z" fill="#e8a93a"/>
+      <path d="M6 26h52v30H6z" fill="#f5c96a"/>
+      <circle cx="38" cy="38" r="11" fill="none" stroke="#2b2b2b" stroke-width="4"/>
+      <path d="M46 46l9 9" stroke="#2b2b2b" stroke-width="5" stroke-linecap="round"/>
+    </symbol>
+    <!-- Chart / feed settings -->
+    <symbol id="i-chart" viewBox="0 0 64 64">
+      <rect x="12" y="30" width="10" height="26" rx="3" fill="#5ec22a"/>
+      <rect x="27" y="18" width="10" height="38" rx="3" fill="#3fa3d8"/>
+      <rect x="42" y="8"  width="10" height="48" rx="3" fill="#e03a3a"/>
+    </symbol>
+    <!-- Cleaning cycle -->
+    <symbol id="i-clean" viewBox="0 0 64 64">
+      <path d="M10 26h36l-8-8M54 40H18l8 8" stroke="currentColor" stroke-width="7"
+            fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- Data same (blue down arrows) -->
+    <symbol id="i-datasame" viewBox="0 0 64 64">
+      <path d="M14 16v18l-6-2 10 16 10-16-6 2V16z" fill="#2f9fe0"/>
+      <path d="M40 16v18l-6-2 10 16 10-16-6 2V16z" fill="#2f9fe0"/>
+    </symbol>
+    <!-- View image -->
+    <symbol id="i-viewimg" viewBox="0 0 64 64">
+      <circle cx="28" cy="28" r="17" fill="#bfe4f5" stroke="#2f7fb8" stroke-width="4"/>
+      <circle cx="28" cy="28" r="7" fill="#e07a2a"/>
+      <path d="M41 41l14 14" stroke="#2f7fb8" stroke-width="7" stroke-linecap="round"/>
+    </symbol>
+    <!-- Start (blue down arrow) -->
+    <symbol id="i-start" viewBox="0 0 64 64">
+      <path d="M24 8h16v26h12L32 56 12 34h12z" fill="#2f9fe0"/>
+    </symbol>
+    <!-- Stop -->
+    <symbol id="i-stop" viewBox="0 0 64 64">
+      <rect x="14" y="14" width="36" height="36" rx="4" fill="#e03a3a"/>
+    </symbol>
+    <!-- Menu grid -->
+    <symbol id="i-menu" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="#1b4e70" stroke="#5fc2f0" stroke-width="3"/>
+      <g fill="#fff">
+        <circle cx="22" cy="22" r="3.4"/><circle cx="32" cy="22" r="3.4"/><circle cx="42" cy="22" r="3.4"/>
+        <circle cx="22" cy="32" r="3.4"/><circle cx="32" cy="32" r="3.4"/><circle cx="42" cy="32" r="3.4"/>
+        <circle cx="22" cy="42" r="3.4"/><circle cx="32" cy="42" r="3.4"/><circle cx="42" cy="42" r="3.4"/>
+      </g>
+    </symbol>
+    <!-- Power off -->
+    <symbol id="i-power" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="#1b4e70" stroke="#5fc2f0" stroke-width="3"/>
+      <circle cx="32" cy="32" r="22" fill="#7a8a92"/>
+      <path d="M32 16v18" stroke="#1b6fa8" stroke-width="6" stroke-linecap="round"/>
+      <path d="M21 23a15 15 0 1 0 22 0" stroke="#1b6fa8" stroke-width="6" fill="none" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div id="stage-wrap">
+  <div id="stage">
+
+    <div class="clock" id="clock">00:00:00 2026/01/01</div>
+    <button id="help-btn" title="Emulator help (not part of the real HMI)">?</button>
+
+    <!-- Screens are rendered into here by js/ui.js -->
+    <div id="screens"></div>
+
+    <!-- Dialog -->
+    <div class="dialog-backdrop" id="dialog-backdrop">
+      <div class="dialog" id="dialog"></div>
+    </div>
+
+    <div id="toast"></div>
+
+    <div id="power-off"><div class="msg">MACHINE OFF — CLICK TO POWER ON</div></div>
+  </div>
+</div>
+
+<script src="js/profiles.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
