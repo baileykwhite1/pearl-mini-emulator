@@ -28,16 +28,23 @@ html, body {
 #stage-wrap {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  overflow: hidden;
 }
 
+/* The stage is a fixed 1340x872 surface pinned by its own centre to the centre
+   of the viewport, then scaled to fit. Centring via left/top + translate rather
+   than grid alignment matters: a grid clamps an item wider than its container
+   to the start edge, which combined with a centre-origin scale pushes the whole
+   stage off to one side on any window narrower than 1340px. */
 #stage {
   width: 1340px;
   height: 872px;
   background: var(--bg);
-  position: relative;
+  position: absolute;
+  left: 50%;
+  top: 50%;
   transform-origin: center center;
+  transform: translate(-50%, -50%) scale(1);
   overflow: hidden;
   user-select: none;
 }

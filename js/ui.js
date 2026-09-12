@@ -194,17 +194,32 @@
   /* ---- Stage scaling ---- */
   function fitStage() {
     var stage = document.getElementById('stage');
+    if (!stage) return;
     var pad = 24;
     var sx = (window.innerWidth - pad) / 1340;
     var sy = (window.innerHeight - pad) / 872;
-    var s = Math.min(sx, sy);
-    stage.style.transform = 'scale(' + s + ')';
+    var s = Math.max(0.1, Math.min(sx, sy));
+    /* The translate keeps the stage centred on the viewport whatever the scale;
+       see the note on #stage in styles.css. */
+    stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+  }
+
+  /* Watch the wrapper as well as the window: the page can be resized by its
+     container (an embed, a split pane) without a window resize event firing. */
+  function watchStage() {
+    fitStage();
+    window.addEventListener('resize', fitStage);
+    if (typeof ResizeObserver === 'function') {
+      var wrap = document.getElementById('stage-wrap');
+      if (wrap) new ResizeObserver(fitStage).observe(wrap);
+    }
   }
 
   global.UI = {
     el: el, icon: icon, toast: toast,
     alert: alertBox, confirm: confirmBox, prompt: promptBox,
     closeDialog: closeDialog, showDialog: showDialog,
-    spinner: spinner, chrome: chrome, lamps: lamps, fitStage: fitStage
+    spinner: spinner, chrome: chrome, lamps: lamps,
+    fitStage: fitStage, watchStage: watchStage
   };
 })(window);

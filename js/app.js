@@ -1566,8 +1566,7 @@
   logEvent('Profile loaded: ' + title());
   tickClock();
   setInterval(tickClock, 1000);
-  UI.fitStage();
-  window.addEventListener('resize', UI.fitStage);
+  UI.watchStage();
   go('home');
   requestAnimationFrame(frame);
 
