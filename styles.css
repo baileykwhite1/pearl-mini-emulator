@@ -131,13 +131,14 @@ html, body {
   text-indent: 26px;
   color: #f2f2f2;
 }
-.wordmark .macron {
-  display: block;
-  width: 62px; height: 3px;
-  background: #f2f2f2;
-  margin: 0 auto -22px;
-  position: relative; left: -84px;
+/* The macron hangs off the O itself, sized in em, so it stays put whatever
+   the font size or letter spacing. */
+.wordmark .wm-o { position: relative; }
+.wordmark .wm-o .macron {
+  position: absolute; left: 0.02em; width: 0.66em; height: 0.045em;
+  top: -0.30em; background: currentColor;
 }
+.wordmark.inline { position: static; text-align: center; }
 
 .home-actions {
   position: absolute;
@@ -1089,3 +1090,107 @@ button.num:active { background: var(--btn-bg-active); }
 }
 .ml-foot .circle-x::before { transform: translate(-50%,-50%) rotate(45deg); }
 .ml-foot .circle-x::after  { transform: translate(-50%,-50%) rotate(-45deg); }
+
+/* ================================================================
+   Type of machine: factory setup
+   The wizard runs as a window on the machine's desktop, so the blue
+   ground shows around it.
+   ================================================================ */
+.setup-desktop { background: #3f7cb8; }
+
+.su-window {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 1080px; height: 590px;
+  border: 2px solid var(--hmi-green); background: #050505; padding: 4px;
+}
+.su-window .bar { height: 20px; background: linear-gradient(#4a4a4a, #262626); margin-bottom: 4px; }
+.su-window .inner { position: absolute; inset: 26px 6px 6px; }
+
+.su-select {
+  border: 2px solid #fff; background: #000; color: var(--text);
+  height: 56px; min-width: 160px; padding: 0 10px; font-size: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.su-select .caret { color: var(--hmi-green); }
+
+.su-lock { position: absolute; top: 10px; left: 12px; width: 160px; height: 62px; font-size: 21px; }
+.su-window .inner > .su-select { position: absolute; top: 10px; left: 230px; width: 190px; }
+.su-lang { position: absolute; top: 56px; right: 14px; width: 420px; }
+.su-lang .su-select { width: 100%; height: 62px; }
+
+.su-logo-row {
+  position: absolute; top: 158px; left: 60px;
+  display: flex; align-items: center; gap: 14px;
+}
+.su-arrow { width: 64px; height: 130px; font-size: 20px; }
+.su-logo { width: 300px; height: 130px; display: grid; place-items: center; }
+.su-logo .wordmark.inline {
+  font-size: 34px; letter-spacing: 11px; text-indent: 11px; color: #f2f2f2;
+}
+.su-logo .su-empty { font-size: 19px; letter-spacing: 0; color: #6a6a6a; }
+
+.su-inputlogo { position: absolute; top: 300px; left: 138px; width: 300px; height: 106px; font-size: 21px; }
+
+.su-chute {
+  position: absolute; top: 158px; right: 14px;
+  display: flex; align-items: center; gap: 22px; font-size: 22px;
+}
+.su-chute-box {
+  width: 140px; height: 110px; border: 2px solid #fff; background: #000;
+  color: var(--text); font-size: 22px; cursor: pointer;
+}
+.su-chute-box:hover { background: #111; }
+
+.su-next { position: absolute; right: 24px; bottom: 18px; width: 240px; height: 106px; font-size: 22px; }
+
+/* Step 2 */
+.su-title { text-align: center; font-size: 22px; margin: 6px 0 20px; }
+.su-grid { display: flex; gap: 40px; padding: 0 22px; }
+.su-picks { flex: 0 0 500px; display: flex; flex-direction: column; gap: 14px; }
+.su-pick { height: 84px; font-size: 20px; line-height: 1.35; }
+.su-cams { display: flex; gap: 46px; align-items: flex-start; }
+.su-cam { display: flex; align-items: center; gap: 16px; }
+.su-cam-type { width: 250px; height: 140px; font-size: 21px; line-height: 1.4; }
+.su-cam-n {
+  width: 88px; height: 88px; border: 2px solid #fff; background: #000;
+  color: var(--text); font-size: 21px; cursor: pointer;
+}
+.su-cam-n:hover { background: #111; }
+.su-back { position: absolute; left: 150px; bottom: 18px; width: 240px; height: 96px; font-size: 22px; }
+.su-ok   { position: absolute; right: 150px; bottom: 18px; width: 240px; height: 96px; font-size: 22px; }
+
+/* Logo dialog */
+.logodialog { width: 880px; }
+.logo-slot {
+  border: 1px solid #5a5a5a; margin-bottom: 8px; padding: 18px 22px;
+  display: flex; align-items: center; justify-content: space-between; gap: 26px;
+}
+.logo-slot.tall { min-height: 300px; }
+.logo-slot .btn { width: 230px; height: 74px; font-size: 19px; line-height: 1.35; }
+.logo-frame {
+  position: relative; display: grid; place-items: center;
+  color: #f2f2f2; font-weight: 300;
+}
+.logo-frame.small { width: 300px; height: 130px; border: 1px solid #4a4a4a; }
+.logo-frame.small .wordmark.inline {
+  font-size: 34px; letter-spacing: 11px; text-indent: 11px; color: #f2f2f2;
+}
+.logo-frame.big { flex: 1; height: 190px; }
+.logo-frame.big .wordmark.inline {
+  font-size: 46px; letter-spacing: 15px; text-indent: 15px; color: #f2f2f2;
+}
+.logo-foot { display: grid; place-items: center; padding-top: 14px; }
+.logo-foot .btn { width: 280px; height: 78px; font-size: 21px; }
+
+/* ---- Restart / loading ---- */
+.restart { background: #000; }
+.restart-track {
+  position: absolute; top: 62px; left: 112px; width: 176px; height: 26px;
+  background: #000;
+}
+.restart-bar { height: 100%; width: 0; background: #9ee86b; }
+.wordmark.big {
+  position: absolute; top: 50%; left: 0; right: 0; transform: translateY(-50%);
+  text-align: center; font-size: 132px; font-weight: 300;
+  letter-spacing: 44px; text-indent: 44px; color: #fff;
+}

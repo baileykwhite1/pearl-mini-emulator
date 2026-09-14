@@ -65,10 +65,26 @@
     log: [],
     logSelected: 0,
     modeSelected: 7,
+    setup: {
+      step: 1, brand: 'JXO', language: 'English', chute: 1,
+      logoIndex: 0, ejectorsF: 64, ejectorsB: 64
+    },
     sim: new Simulator()
   };
 
   var root = document.getElementById('screens');
+
+  /* The macron belongs over the O, so wrap that letter and hang the bar off it
+     in em units -- that way it lands correctly at any font size. */
+  function wordmark(extraClass) {
+    return el('div', { class: 'wordmark' + (extraClass ? ' ' + extraClass : '') }, [
+      document.createTextNode('S'),
+      el('span', { class: 'wm-o' }, [
+        document.createTextNode('O'), el('i', { class: 'macron' })
+      ]),
+      document.createTextNode('VDA')
+    ]);
+  }
 
   function rank(level) { return LEVELS.indexOf(level || M.level); }
   function atLeast(level) { return rank() >= LEVELS.indexOf(level); }
@@ -314,9 +330,7 @@
 
     return el('div', { class: 'screen active', id: 'screen-home' }, [
       el('div', { class: 'home-panel' }, [
-        el('div', { class: 'wordmark' }, [
-          el('span', { class: 'macron' }), document.createTextNode('SOVDA')
-        ]),
+        wordmark(),
         el('div', { class: 'home-actions' }, [
           el('button', { class: 'home-action', onclick: startSorting }, [
             icon('i-start'), el('span', { text: 'Start' })
@@ -1552,6 +1566,21 @@
         })),
         el('div', { class: 'sys-body' }, portBody())
       ]);
+    } else if (M.sysNav === 'Type of machine') {
+      panel = el('div', { class: 'sys-panel' }, [
+        el('div', { class: 'sys-body' }, [
+          el('p', { style: 'font-size:20px', text: 'Type of machine' }),
+          el('p', { style: 'margin-top:18px;color:#b9b9b9;font-size:18px;line-height:1.6',
+            html: 'The factory setup for this machine: branding, language, chute count, and the ' +
+                  'camera hardware. Running it restarts the software.<br><br>' +
+                  'JXO only. This is how a machine is built, not something a roastery touches.' }),
+          el('button', { class: 'btn', style: 'margin-top:26px;height:76px;padding:0 30px;font-size:20px',
+            text: 'Open setup', onclick: function () {
+              M.setup.step = 1;
+              go('setup');
+            } })
+        ])
+      ]);
     } else if (M.sysNav === 'PLC') {
       panel = el('div', { class: 'sys-panel' }, [
         el('div', { class: 'sys-body' }, [
@@ -2083,6 +2112,187 @@
       'all your profiles should show the same mode before the profile name.');
   }
 
+  /* ---- Type of machine: factory setup ----
+     Runs as a window on the machine's desktop rather than full screen, which is
+     why the blue ground shows around it. Two steps, then a restart. */
+  var SETUP_LOGOS = ['SOVDA', '(none)', '(none)'];
+
+  screens.setup = function () {
+    var S = M.setup;
+
+    function dropdown(value, onclick) {
+      return el('button', { class: 'su-select', onclick: onclick }, [
+        el('span', { text: value }), el('span', { class: 'caret', text: '\u25be' })
+      ]);
+    }
+
+    if (S.step === 1) {
+      var logo = SETUP_LOGOS[S.logoIndex];
+      return el('div', { class: 'screen active setup-desktop' }, [
+        el('div', { class: 'su-window' }, [
+          el('div', { class: 'bar' }),
+          el('div', { class: 'inner' }, [
+            el('button', { class: 'btn su-lock', text: 'LOCK', onclick: function () {
+              UI.alert('LOCK', 'Locks the setup so it cannot be re-run. JXO only.');
+            } }),
+            dropdown(S.brand, function () {
+              UI.toast('Brand is set at the factory.', true);
+            }),
+            el('div', { class: 'su-lang' }, [
+              dropdown(S.language, function () {
+                UI.toast('Interface language for the built machine.', true);
+              })
+            ]),
+
+            el('div', { class: 'su-logo-row' }, [
+              el('button', { class: 'btn su-arrow', text: '<',
+                onclick: function () {
+                  S.logoIndex = (S.logoIndex + SETUP_LOGOS.length - 1) % SETUP_LOGOS.length;
+                  render();
+                } }),
+              el('div', { class: 'su-logo' }, logo === 'SOVDA'
+                ? [wordmark('inline')]
+                : [el('span', { class: 'su-empty', text: logo })]),
+              el('button', { class: 'btn su-arrow', text: '>',
+                onclick: function () {
+                  S.logoIndex = (S.logoIndex + 1) % SETUP_LOGOS.length;
+                  render();
+                } })
+            ]),
+
+            el('button', { class: 'btn su-inputlogo', text: 'Input Logo Img',
+              onclick: openLogoDialog }),
+
+            el('div', { class: 'su-chute' }, [
+              el('div', { text: 'Chute' }),
+              el('button', { class: 'su-chute-box', text: String(S.chute),
+                title: 'Touch to type a value',
+                onclick: function () {
+                  UI.valueKeypad({ value: S.chute, min: 1, max: 8 }).then(function (v) {
+                    if (v !== null) { S.chute = v; render(); }
+                  });
+                } })
+            ]),
+
+            el('button', { class: 'btn su-next', text: 'Next(N) >',
+              onclick: function () { S.step = 2; render(); } })
+          ])
+        ])
+      ]);
+    }
+
+    /* Step 2: camera hardware */
+    function pick(label, value, note) {
+      return el('button', { class: 'btn su-pick', onclick: function () {
+        UI.alert(label, '<strong>' + value + '</strong><br><br>' + note);
+      } }, [
+        el('div', { text: label }), el('div', { text: value })
+      ]);
+    }
+
+    function cam(side, key) {
+      return el('div', { class: 'su-cam' }, [
+        el('button', { class: 'btn su-cam-type', onclick: function () {
+          UI.alert(side + ' camera', 'USB_CCD \u2014 the camera hardware fitted on the ' +
+            side + ' side. Set at the factory.');
+        } }, [el('div', { text: side }), el('div', { text: 'USB_CCD' })]),
+        el('button', { class: 'su-cam-n', text: String(S[key]),
+          title: 'Touch to type a value',
+          onclick: function () {
+            UI.valueKeypad({ value: S[key], min: 1, max: 256 }).then(function (v) {
+              if (v !== null) { S[key] = v; render(); }
+            });
+          } })
+      ]);
+    }
+
+    return el('div', { class: 'screen active setup-desktop' }, [
+      el('div', { class: 'su-window' }, [
+        el('div', { class: 'bar' }),
+        el('div', { class: 'inner' }, [
+          el('div', { class: 'su-title',
+            text: 'Camera equipment type and installation position selection' }),
+          el('div', { class: 'su-grid' }, [
+            el('div', { class: 'su-picks' }, [
+              pick('Activated status', 'F-B',
+                'Both cameras are active. The Pearl Mini scans the front and back of every bean.'),
+              pick('Camera hardware device type', 'Anysort', 'The camera board family fitted.'),
+              pick('Camera hardware device type', 'Color Camera',
+                'A colour camera, which is what the Patio, Quaker and Burnt categories read.'),
+              pick('Scheme', 'Grain',
+                'The sorting scheme. Grain is the scheme coffee runs under.')
+            ]),
+            el('div', { class: 'su-cams' }, [cam('F', 'ejectorsF'), cam('B', 'ejectorsB')])
+          ]),
+          el('button', { class: 'btn su-back', text: '< Back(B)',
+            onclick: function () { S.step = 1; render(); } }),
+          el('button', { class: 'btn su-ok', text: 'Enter(OK)',
+            onclick: function () {
+              logEvent('Machine setup applied \u2014 restarting', true);
+              go('restart');
+            } })
+        ])
+      ])
+    ]);
+  };
+
+  function openLogoDialog() {
+    UI.showDialog(function (box) {
+      box.className = 'dialog logodialog';
+      box.appendChild(el('div', { class: 'logo-slot' }, [
+        el('div', { class: 'logo-frame small' }, [wordmark('inline')]),
+        el('button', { class: 'btn', html: 'LOGO-IMG<br>300*130.png', onclick: function () {
+          UI.toast('Loads the header logo from a 300\u00d7130 PNG.', true);
+        } })
+      ]));
+      box.appendChild(el('div', { class: 'logo-slot tall' }, [
+        el('div', { class: 'logo-frame big' }, [wordmark('inline mid')]),
+        el('button', { class: 'btn', html: 'Start-IMG<br>800*600.png', onclick: function () {
+          UI.toast('Loads the start-up splash from an 800\u00d7600 PNG.', true);
+        } })
+      ]));
+      box.appendChild(el('div', { class: 'logo-foot' }, [
+        el('button', { class: 'btn', text: 'Enter', onclick: function () {
+          box.className = 'dialog';
+          UI.closeDialog();
+        } })
+      ]));
+    });
+  }
+
+  /* ---- Restart ----
+     The green bar fills, clears and fills again several times before the machine
+     comes back to the home screen. */
+  var RESTART_SECONDS = 30;
+
+  screens.restart = function () {
+    var bar = el('div', { class: 'restart-bar' });
+    var node = el('div', { class: 'screen active restart' }, [
+      el('div', { class: 'restart-track' }, [bar]),
+      wordmark('big')
+    ]);
+
+    var started = performance.now();
+    var cycles = 4;
+    var timer = setInterval(function () {
+      var elapsed = (performance.now() - started) / 1000;
+      if (elapsed >= RESTART_SECONDS) {
+        clearInterval(timer);
+        Profiles.factoryReset();
+        M.sim.reset();
+        M.level = 'operator';
+        logEvent('Machine restarted after setup');
+        go('home');
+        return;
+      }
+      var perCycle = RESTART_SECONDS / cycles;
+      var within = (elapsed % perCycle) / perCycle;
+      bar.style.width = (within * 100).toFixed(1) + '%';
+    }, 60);
+    node._restartTimer = timer;
+    return node;
+  };
+
   function lightGroup(legend, lamps) {
     return el('div', { class: 'light-group' }, [
       el('div', { class: 'legend', text: legend }),
@@ -2219,6 +2429,7 @@
   function go(name) {
     /* A screen change always dismisses whatever dialog was open, so a prompt
        can never linger over a screen it does not belong to. */
+    if (currentNode && currentNode._restartTimer) clearInterval(currentNode._restartTimer);
     UI.closeDialog();
     ['user-overlay', 'cat-overlay'].forEach(function (id) {
       var stray = document.getElementById(id);

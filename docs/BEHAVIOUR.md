@@ -242,6 +242,28 @@ Tabs: COM, Vibrator Board, Background, SprayValve, Light.
 - **Network** — adapter `Realtek PCIe GBE Family Controller #6`,
   `IP: 192.168.253.101`, and the automatic/manual address options
 
+### Type of machine
+
+JXO only, and the deepest screen in the machine: the factory setup that builds a
+Pearl Mini. It runs as a window on the machine's desktop rather than full screen,
+so the blue ground shows around it.
+
+**Step 1 — branding and chutes.** LOCK, the brand (JXO), the interface language,
+a logo carousel with `<` and `>`, Input Logo Img, and the chute count. Input Logo
+Img opens a dialog with two slots: **LOGO-IMG 300×130.png** for the header mark
+and **Start-IMG 800×600.png** for the start-up splash. This is where the SOVDA
+wordmark on the home screen comes from.
+
+**Step 2 — camera hardware.** "Camera equipment type and installation position
+selection": Activated status `F-B`, camera hardware device type `Anysort`,
+camera hardware device type `Color Camera`, and Scheme `Grain`. To the right,
+`F USB_CCD` and `B USB_CCD` each with 64 — the ejector count.
+
+**Enter(OK) restarts the machine.** A green bar fills, clears and fills again
+several times over about 30 seconds against the SOVDA splash, then the home
+screen comes back. The emulator reproduces that, and comes back as Operator with
+the profiles reset, which is what a factory setup leaves behind.
+
 ### Mode List
 
 Camera Program → Mode Switch opens the Mode List: every sorting mode the machine
