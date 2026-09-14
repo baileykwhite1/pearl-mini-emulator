@@ -1753,6 +1753,8 @@
   function openGeneralItem(name) {
     if (name === 'Language Setting') { go('language'); return; }
 
+    if (name === 'Time Correction') { openTimeCorrection(); return; }
+
     if (name === 'Related Info') { go('relatedinfo'); return; }
 
     if (name === 'User password') { go('userpassword'); return; }
