@@ -8,8 +8,25 @@
 
   var el = UI.el, icon = UI.icon;
 
+  /* User levels, lowest to highest. Each is entered by typing its password on
+     the keypad; the code itself decides which level you land on.
+       Operator    no password
+       Supervisor  the machine date, YYYYMMDD
+       Engineer    the time, HHMM
+       JXO         day and time, DDHHMM  (factory mode)
+     The time-based codes accept the previous minute as well as the current one,
+     so a code that was correct when you started typing still works. */
+  var LEVELS = ['operator', 'supervisor', 'engineer', 'jxo'];
+
+  var LEVEL_INFO = {
+    operator:   { label: 'Operator',              colour: 'var(--hmi-green)' },
+    supervisor: { label: 'Supervisor',            colour: 'var(--blue)' },
+    engineer:   { label: 'Manufacture Engineer',  colour: '#e8c53a' },
+    jxo:        { label: 'JXO',                   colour: '#ff3b3b' }
+  };
+
   var M = {
-    supervisor: false,
+    level: 'operator',
     valve: false,
     feed: false,
     screen: 'home',
@@ -33,6 +50,17 @@
 
   var root = document.getElementById('screens');
 
+  function rank(level) { return LEVELS.indexOf(level || M.level); }
+  function atLeast(level) { return rank() >= LEVELS.indexOf(level); }
+  function levelColour() { return LEVEL_INFO[M.level].colour; }
+  function levelLabel(level) { return LEVEL_INFO[level || M.level].label; }
+
+  /* Everything that used to ask "are we supervisor?" means "supervisor or
+     above", so expose it as a read-only view onto the level. */
+  Object.defineProperty(M, 'supervisor', {
+    get: function () { return atLeast('supervisor'); }
+  });
+
   /* ---------------- logging ---------------- */
   function stamp(d) {
     d = d || new Date();
@@ -53,10 +81,32 @@
       d.getFullYear() + '/' + p(d.getMonth() + 1) + '/' + p(d.getDate());
   }
 
-  function todayPassword() {
-    var d = new Date();
-    function p(n) { return String(n).padStart(2, '0'); }
-    return '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function todayPassword(d) {
+    d = d || new Date();
+    return '' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate());
+  }
+
+  function engineerPassword(d) {
+    d = d || new Date();
+    return pad2(d.getHours()) + pad2(d.getMinutes());
+  }
+
+  function jxoPassword(d) {
+    d = d || new Date();
+    return pad2(d.getDate()) + pad2(d.getHours()) + pad2(d.getMinutes());
+  }
+
+  /* Which level, if any, a typed code unlocks. */
+  function levelForCode(code) {
+    if (!code) return null;
+    var now = new Date();
+    var ago = new Date(now.getTime() - 60000);   // grace for a rolled-over minute
+    if (code === todayPassword(now)) return 'supervisor';
+    if (code === engineerPassword(now) || code === engineerPassword(ago)) return 'engineer';
+    if (code === jxoPassword(now) || code === jxoPassword(ago)) return 'jxo';
+    return null;
   }
 
   /* ---------------- helpers ---------------- */
@@ -71,10 +121,14 @@
   }
 
   function onUserIcon() {
-    if (M.supervisor) {
-      UI.confirm('User', 'Return to <strong>Operator</strong>? Supervisor-only options will be hidden.',
+    if (M.level !== 'operator') {
+      UI.confirm('User',
+        'Return to <strong>Operator</strong>? Everything above Operator will be hidden.',
         'Return to Operator').then(function (ok) {
-        if (ok) { M.supervisor = false; logEvent('Signed out of Supervisor mode'); render(); }
+        if (!ok) return;
+        logEvent('Signed out of ' + levelLabel());
+        M.level = 'operator';
+        render();
       });
       return;
     }
@@ -84,25 +138,27 @@
   /* The machine shows a single-field panel with a green tick. Touching the
      field opens a numeric keypad; the password is the machine date, YYYYMMDD. */
   function openUserPanel() {
-    var chosen = 'Operator';
+    var chosen = M.level;
     var overlay = makeOverlay('user-overlay');
 
     function close() {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
 
-    var field = el('div', { class: 'field', text: chosen, onclick: askPassword });
+    var field = el('div', { class: 'field', text: levelLabel(chosen), onclick: askPassword });
 
     function askPassword() {
       numericKeypad('Please enter password.').then(function (code) {
         if (code === null) return;
-        if (code !== todayPassword()) {
+        var lvl = levelForCode(code);
+        if (!lvl) {
           UI.toast('Incorrect password.', true);
           return;
         }
-        chosen = 'Supervisor';
-        field.textContent = chosen;
-        UI.toast('Supervisor — press the green tick to confirm.');
+        chosen = lvl;
+        field.textContent = levelLabel(lvl);
+        field.style.color = LEVEL_INFO[lvl].colour;
+        UI.toast(levelLabel(lvl) + ' — press the green tick to confirm.');
       });
     }
 
@@ -112,9 +168,9 @@
         field,
         el('button', { class: 'ok', title: 'Confirm', onclick: function () {
           close();
-          if (chosen === 'Supervisor') {
-            M.supervisor = true;
-            logEvent('Supervisor mode entered');
+          if (chosen !== M.level) {
+            M.level = chosen;
+            logEvent(levelLabel() + ' mode entered');
           }
           render();
         } })
@@ -187,7 +243,7 @@
     opts = opts || {};
     return UI.chrome({
       title: opts.title || title(),
-      supervisor: M.supervisor,
+      level: M.level,
       showSave: opts.showSave,
       showBack: opts.showBack,
       onUser: onUserIcon,
@@ -227,7 +283,7 @@
       }]
     ].map(function (d) {
       var s = icon(d[0]);
-      if (d[0] === 'i-person') s.style.color = M.supervisor ? 'var(--blue)' : 'var(--hmi-green)';
+      if (d[0] === 'i-person') s.style.color = levelColour();
       if (d[0] === 'i-clean') s.style.color = '#f0f0f0';
       return el('button', { title: d[1], onclick: d[2] }, [s]);
     });
@@ -267,22 +323,24 @@
     { label: 'Valve Test',             icon: 't-valve',       to: 'valvetest' },
     { label: 'Camera Setting',         icon: 't-camera',      to: 'whitebalance', warn: true },
     { label: 'Background Plate Setting', icon: 't-bgplate',   protected: true },
-    { label: 'System Setting',         icon: 't-system',      to: 'system', supervisor: true }
+    { label: 'System Setting',         icon: 't-system',      to: 'system', needs: 'supervisor' }
   ];
 
   screens.menu = function () {
     var tiles = MENU.map(function (m) {
       var kids = [icon(m.icon), el('span', { text: m.label })];
-      if (m.protected || m.supervisor || m.warn) {
-        kids.push(el('span', { class: 'tile-note', text: 'Supervisor' }));
+      if (m.protected || m.needs || m.warn) {
+        kids.push(el('span', { class: 'tile-note',
+          text: levelLabel(m.needs || 'supervisor') }));
       }
       return el('button', {
         class: 'menu-icon',
         onclick: function () {
           if (m.protected) return openProtected(m.label);
           if (m.warn) return openWithWarning(m.label, m.to);
-          if (m.supervisor && !M.supervisor) {
-            UI.alert(m.label, 'This screen requires Supervisor mode. Use the person icon to sign in.');
+          if (m.needs && !atLeast(m.needs)) {
+            UI.alert(m.label, 'This screen requires ' + levelLabel(m.needs) +
+              '. Use the person icon to sign in.');
             return;
           }
           go(m.to);
@@ -959,7 +1017,7 @@
 
     return el('div', { class: 'screen active' }, UI.chrome({
       title: '[S/N:' + (list.indexOf(sel) + 1) + '] ' + Profiles.displayName(sel),
-      supervisor: M.supervisor,
+      level: M.level,
       showSave: false,
       onUser: onUserIcon,
       onBack: function () { go('menu'); }
@@ -1102,7 +1160,7 @@
     ]);
 
     return el('div', { class: 'screen active' }, UI.chrome({
-      title: title(), supervisor: M.supervisor, showSave: false,
+      title: title(), level: M.level, showSave: false,
       onUser: onUserIcon, onBack: function () { go('menu'); }
     }).concat([
       tabs('valveTab'),
@@ -1162,14 +1220,14 @@
       : [el('div', { class: 'log-line', text: 'No events recorded.' })];
 
     return el('div', { class: 'screen active' }, UI.chrome({
-      title: 'Operation History', supervisor: M.supervisor, showSave: false,
+      title: 'Operation History', level: M.level, showSave: false,
       onUser: onUserIcon, onBack: function () { go('home'); }
     }).concat([el('div', { class: 'info-body' }, lines)]));
   };
 
   screens.contact = function () {
     return el('div', { class: 'screen active' }, UI.chrome({
-      title: 'Service & Contact', supervisor: M.supervisor, showSave: false,
+      title: 'Service & Contact', level: M.level, showSave: false,
       onUser: onUserIcon, onBack: function () { go('home'); }
     }).concat([
       el('div', { class: 'info-body' }, [
@@ -1187,7 +1245,7 @@
 
   screens.network = function () {
     return el('div', { class: 'screen active' }, UI.chrome({
-      title: 'Network', supervisor: M.supervisor, showSave: false,
+      title: 'Network', level: M.level, showSave: false,
       onUser: onUserIcon, onBack: function () { go('home'); }
     }).concat([
       el('div', { class: 'info-body' }, [
@@ -1208,7 +1266,7 @@
     var statsBox = el('div', { class: 'stats' });
 
     var node = el('div', { class: 'screen active' }, UI.chrome({
-      title: title(), supervisor: M.supervisor, showSave: false,
+      title: title(), level: M.level, showSave: false,
       onUser: onUserIcon, onBack: function () { go('home'); }
     }).concat([
       el('div', { class: 'run-wrap' }, [
@@ -1400,17 +1458,48 @@
      Reproduced as a read-only view. The manual is explicit that changing
      anything here can cause serious sorting problems, so the emulator lets you
      recognise the screen without teaching anyone to edit it. */
-  var SYS_NAV = ['General Setting', 'ON-OFF Settings', 'Port Setting',
-                 'Camera Program', 'PLC', 'Network', 'Fault Code'];
+  /* Supervisor reaches General Setting only. Manufacture Engineer reaches
+     everything except Machine Type at the very bottom, which is JXO only. */
+  var SYS_NAV = [
+    { label: 'General Setting',  needs: 'supervisor' },
+    { label: 'ON-OFF Settings',  needs: 'engineer' },
+    { label: 'Port Setting',     needs: 'engineer' },
+    { label: 'Camera Program',   needs: 'engineer' },
+    { label: 'PLC',              needs: 'engineer' },
+    { label: 'Network',          needs: 'engineer' },
+    { label: 'Fault Code',       needs: 'engineer' },
+    { label: 'Machine Type',     needs: 'jxo' }
+  ];
   var SYS_TABS = ['COM', 'Vibrator Board', 'Background', 'SprayValve', 'Light'];
   var SOFTWARE_VERSION = 'JXO-VT-2.8-3527-20250419111509';
 
   screens.system = function () {
+    /* Drop back to the highest panel this level is allowed to see. */
+    var current = SYS_NAV.filter(function (n) { return n.label === M.sysNav; })[0];
+    if (!current || !atLeast(current.needs)) {
+      var first = SYS_NAV.filter(function (n) { return atLeast(n.needs); })[0];
+      M.sysNav = first ? first.label : 'General Setting';
+    }
+
+    /* Anything above your level stays visible but locked, so you can see what
+       the machine has without being able to touch it. */
     var nav = el('div', { class: 'sys-nav' }, SYS_NAV.map(function (n) {
+      var allowed = atLeast(n.needs);
       return el('button', {
-        class: 'btn' + (M.sysNav === n ? ' active' : ''), text: n,
-        onclick: function () { M.sysNav = n; render(); }
-      });
+        class: 'btn' + (M.sysNav === n.label ? ' active' : '') + (allowed ? '' : ' locked'),
+        title: allowed ? n.label : 'Requires ' + levelLabel(n.needs),
+        onclick: function () {
+          if (!allowed) {
+            UI.toast(n.label + ' requires ' + levelLabel(n.needs) + '.', true);
+            return;
+          }
+          M.sysNav = n.label;
+          render();
+        }
+      }, [
+        el('span', { text: n.label }),
+        allowed ? null : el('span', { class: 'nav-need', text: levelLabel(n.needs) })
+      ]);
     }));
 
     var panel;
@@ -1423,6 +1512,21 @@
           });
         })),
         el('div', { class: 'sys-body' }, portBody())
+      ]);
+    } else if (M.sysNav === 'General Setting') {
+      panel = el('div', { class: 'sys-panel' }, [
+        el('div', { class: 'sys-body' }, [
+          el('p', { style: 'font-size:20px', text: 'General Setting' }),
+          el('dl', { style: 'margin-top:20px' }, [
+            el('dt', { text: 'Software version' }), el('dd', { text: SOFTWARE_VERSION }),
+            el('dt', { text: 'Signed in as' }),     el('dd', { text: levelLabel() }),
+            el('dt', { text: 'Language' }),         el('dd', { text: 'SOVDA-EN' }),
+            el('dt', { text: 'Machine date' }),     el('dd', { text: todayPassword() })
+          ]),
+          el('p', { style: 'margin-top:22px;color:#8a8a8a;font-size:17px',
+            html: 'The emulator shows this panel read-only. It is the one System Setting ' +
+                  'panel a Supervisor can reach.' })
+        ])
       ]);
     } else {
       panel = el('div', { class: 'sys-panel' }, [
@@ -1448,7 +1552,7 @@
       ]),
       el('div', { class: 'chrome-icons' }, [
         el('button', { class: 'chrome-icon', title: 'User', onclick: onUserIcon },
-          [(function () { var i2 = icon('i-person'); i2.style.color = '#e8a93a'; return i2; })()]),
+          [(function () { var i2 = icon('i-person'); i2.style.color = levelColour(); return i2; })()]),
         el('button', { class: 'chrome-icon', title: 'Back',
           onclick: function () { go('menu'); } }, [icon('i-back')])
       ]),
@@ -1663,10 +1767,20 @@
         '<li>Drop it far too low and you start throwing away good coffee.</li>' +
         '<li>Set the Clean Interval to 0 and watch the glass foul.</li>' +
         '</ul>' +
-        '<h3>Supervisor mode</h3><p>The person icon asks for the machine date in ' +
-        '<code>YYYYMMDD</code> format, exactly as on a real Pearl Mini. Today that is ' +
-        '<code>' + todayPassword() + '</code>. Overwrite, Delete, Rename and Lock only appear once ' +
-        'you are signed in.</p>' +
+        '<h3>User levels</h3><p>The person icon asks for a password, and the code decides ' +
+        'which level you land on. The clock stays visible over the keypad, because three of ' +
+        'the four codes are made from it.</p>' +
+        '<ul>' +
+        '<li><strong>Operator</strong> — no password. No access to System Setting.</li>' +
+        '<li><strong>Supervisor</strong> — the machine date, <code>YYYYMMDD</code>' +
+        ' (now <code>' + todayPassword() + '</code>). Unlocks profile Overwrite, Delete, Rename ' +
+        'and Lock, the parameter slots, and General Setting.</li>' +
+        '<li><strong>Manufacture Engineer</strong> — the time, <code>HHMM</code>' +
+        ' (now <code>' + engineerPassword() + '</code>). All of System Setting except ' +
+        'Machine Type.</li>' +
+        '<li><strong>JXO</strong> — day and time, <code>DDHHMM</code>' +
+        ' (now <code>' + jxoPassword() + '</code>). Factory mode: everything.</li>' +
+        '</ul>' +
         '<h3>Deliberate gotcha</h3><p>The floppy-disk icon does <em>not</em> save your profile — ' +
         'just as on the machine. Profiles are only stored via <code>Overwrite File</code> in ' +
         'File Selection.</p>' +
@@ -1677,7 +1791,7 @@
         el('button', { class: 'btn', text: 'Reset emulator', onclick: function () {
           Profiles.factoryReset();
           M.sim.reset();
-          M.supervisor = false;
+          M.level = 'operator';
           M.selectedFileId = null;
           UI.closeDialog();
           go('home');

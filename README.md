@@ -41,12 +41,20 @@ while it runs and you see the result within a few hundred beans.
    screen and squeeze its Range. You start rejecting good coffee for a defect that
    was never in the batch.
 
-### Supervisor mode
+### User levels
 
-The person icon opens the Operator panel. Touch the field and a numeric keypad asks
-for the machine date in `YYYYMMDD` format, exactly as on a real Pearl Mini; the field
-then reads Supervisor and the green tick applies it. Overwrite, Delete, Rename and Lock
-only appear once you are signed in.
+The person icon opens the user panel. Touch the field and a numeric keypad asks for a
+password — and the code you type decides which level you land on. The clock stays
+visible over the keypad, because three of the four codes are made from it.
+
+| Level | Icon | Password | Reaches |
+|---|---|---|---|
+| Operator | Green | none | No System Setting |
+| Supervisor | Blue | machine date, `YYYYMMDD` | General Setting only |
+| Manufacture Engineer | Yellow | time, `HHMM` | All System Setting except Machine Type |
+| JXO | Red | day and time, `DDHHMM` | Everything |
+
+Overwrite, Delete, Rename and Lock appear at Supervisor and above.
 
 ### Why A, C and D?
 

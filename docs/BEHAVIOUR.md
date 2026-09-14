@@ -130,20 +130,42 @@ rather than reproducing any behaviour.
 
 ## User levels
 
+Four levels. One keypad: the code you type decides which level you land on.
+
+| Level | Icon | Password | Reaches |
+|---|---|---|---|
+| **Operator** | Green | none | No System Setting at all |
+| **Supervisor** | Blue | machine date, `YYYYMMDD` | General Setting only |
+| **Manufacture Engineer** | Yellow | time, `HHMM` | All of System Setting except Machine Type |
+| **JXO** | Red | day and time, `DDHHMM` | Everything — factory mode |
+
 | Behaviour | Source |
 |---|---|
-| The person icon opens a panel with a single field reading `Operator` and a green tick | HMI screenshots |
+| The person icon opens a panel with a single field and a green tick | HMI screenshots |
 | Touching the field opens a numeric keypad titled "Please enter password." | HMI screenshots |
 | Keypad layout is 1-2-3 / Cancel, 4-5-6 / Clear, 7-8-9 / Confirm, . 0 # | HMI screenshots |
-| Password is the machine date in `YYYYMMDD` | User Manual, *Creating and Saving Profiles* |
+| Supervisor password is the machine date in `YYYYMMDD` | User Manual, *Creating and Saving Profiles* |
+| Manufacture Engineer password is `HHMM`; JXO is `DDHHMM` | User |
+| After a correct password the field names the level; the green tick applies it | User Manual; HMI screenshots |
+| The person icon takes the level's colour | HMI screenshots |
+| Machine Type sits at the very bottom of the System Setting navigation, JXO only | User |
 | The clock stays visible over the keypad and every other dialog | User |
-| After a correct password the field reads `Supervisor`; the green tick applies it | User Manual; HMI screenshots |
-| The person icon changes colour with the signed-in level | HMI screenshots |
 
-The icon appears green, blue, orange and red across the screenshots, so there are
-more levels than the two the manual describes. The emulator implements only the
-two it can source — Operator (green) and Supervisor (blue) — and uses orange on
-System Setting to match what that screen shows. **[model]**
+Supervisor and above also unlock the profile operations the manual describes —
+Overwrite, Delete, Rename and Lock — plus the P1–P4 slot switches, the label
+editor, and the Camera Setting and Background Plate Setting tiles.
+
+Navigation entries above your level stay visible but locked, captioned with the
+level they need. That is an emulator choice, so a trainee can see what the
+machine has without being able to open it. **[model]**
+
+**[model]** The two time-based codes also accept the previous minute, so a code
+that was correct when you started typing still works when you press Confirm.
+
+**[model]** General Setting's contents are not evidenced by any screenshot. The
+emulator shows a short read-only summary there — version, signed-in level,
+language and machine date — so the one panel a Supervisor can reach is not
+empty. Every other panel states plainly that it is not reproduced.
 
 ## Camera screens
 

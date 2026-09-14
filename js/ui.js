@@ -242,15 +242,28 @@
   }
 
   /* ---- Screen chrome ---- */
+  var LEVEL_COLOURS = {
+    operator: 'var(--hmi-green)', supervisor: 'var(--blue)',
+    engineer: '#e8c53a', jxo: '#ff3b3b'
+  };
+  var LEVEL_NAMES = {
+    operator: 'Operator', supervisor: 'Supervisor',
+    engineer: 'Manufacture Engineer', jxo: 'JXO'
+  };
+
   function chrome(opts) {
-    /* opts: { title, showSave, showBack, onBack, supervisor, onUser } */
+    /* opts: { title, showSave, showBack, onBack, level, onUser } */
+    var level = opts.level || 'operator';
     var icons = [];
     icons.push(el('button', {
-      class: 'chrome-icon', title: opts.supervisor ? 'Supervisor mode — click to sign out' : 'Switch user',
+      class: 'chrome-icon',
+      title: level === 'operator'
+        ? 'Switch user'
+        : LEVEL_NAMES[level] + ' — click to sign out',
       onclick: opts.onUser
     }, [(function () {
       var s = icon('i-person');
-      s.style.color = opts.supervisor ? 'var(--blue)' : 'var(--hmi-green)';
+      s.style.color = LEVEL_COLOURS[level];
       return s;
     })()]));
 
