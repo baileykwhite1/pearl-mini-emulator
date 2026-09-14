@@ -62,9 +62,6 @@
   /* ---------------- helpers ---------------- */
   function title() { return Profiles.titleName(Profiles.working); }
 
-  /* The person icon runs through several colours on a real machine as the
-     signed-in level changes. Operator is green; Supervisor is blue. */
-  function personColour() { return M.supervisor ? 'var(--blue)' : 'var(--hmi-green)'; }
 
   function toggleLamp(which) {
     if (which === 'Valve') M.valve = !M.valve;
@@ -88,7 +85,7 @@
      field opens a numeric keypad; the password is the machine date, YYYYMMDD. */
   function openUserPanel() {
     var chosen = 'Operator';
-    var overlay = el('div', { class: 'dialog-backdrop open', id: 'user-overlay' });
+    var overlay = makeOverlay('user-overlay');
 
     function close() {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -349,10 +346,11 @@
   };
 
   /* ---- Sensitivity Regulation ----
-     Columns are driven by the A-F category switches. Coffee runs A, C and D
-     with B, E and F switched off, which is why the lettering has a gap. */
+     Columns are the categories that exist for the file AND are switched on for
+     the camera tab you are looking at. Which spinners a column shows comes from
+     that category's P1-P4 slots, and what they are called comes from its labels. */
   var CATEGORIES = [
-    { letter: 'A', name: 'Patio',  key: 'patio',  scale: true },
+    { letter: 'A', name: 'Patio',  key: 'patio' },
     { letter: 'B', name: 'Green',  key: 'green' },
     { letter: 'C', name: 'Quaker', key: 'quaker' },
     { letter: 'D', name: 'Burnt',  key: 'burnt' },
@@ -360,54 +358,92 @@
     { letter: 'F', name: '' }
   ];
 
+  var SLOT_FIELD = { P1: 'range', P2: 'scale', P3: 'p3', P4: 'spot' };
+  var SLOT_RANGE = {
+    P1: { min: 0, max: 255 }, P2: { min: 0, max: 3 },
+    P3: { min: 0, max: 255 }, P4: { min: 1, max: 255 }
+  };
+
+  function catByLetter(L) {
+    return CATEGORIES.filter(function (c) { return c.letter === L; })[0];
+  }
+
+  /* Categories visible on the camera tab currently selected. */
   function activeCategories() {
-    var on = Profiles.working.categories || {};
-    return CATEGORIES.filter(function (c) { return c.key && on[c.letter]; });
+    var p = Profiles.working;
+    var cam = p[M.sensTab];
+    return CATEGORIES.filter(function (c) {
+      return c.key && p.categories[c.letter] && cam.active && cam.active[c.letter];
+    });
   }
 
   function camera() { return Profiles.working[M.sensTab]; }
 
-  function sensColumn(cat) {
+  function slotLabel(L, pn) {
+    var lab = Profiles.working.labels[L];
+    return (lab && lab[pn]) || pn;
+  }
+
+  function slotSpinner(cat, pn) {
     var cam = camera();
-    var rows = [UI.spinner({
-      label: 'Range', min: 0, max: 255,
-      get: function () { return cam[cat.key].range; },
-      set: function (v) { cam[cat.key].range = v; }
-    })];
-
-    if (cat.scale) {
-      rows.push(UI.spinner({
-        label: 'Scale', min: 0, max: 3,
-        get: function () { return cam.patio.scale; },
-        set: function (v) {
-          cam.patio.scale = v;
-          if (v !== 1) UI.toast('Scale should remain at 1 on Patio.', true);
+    var field = SLOT_FIELD[pn];
+    var lim = SLOT_RANGE[pn];
+    return UI.spinner({
+      label: slotLabel(cat.letter, pn), min: lim.min, max: lim.max,
+      get: function () { return cam[cat.key][field]; },
+      set: function (v) {
+        cam[cat.key][field] = v;
+        if (pn === 'P2' && cat.letter === 'A' && v !== 1) {
+          UI.toast('Scale should remain at 1 on Patio.', true);
         }
-      }));
-    }
-
-    var spot = UI.spinner({
-      label: 'Spot', min: 1, max: 255,
-      get: function () { return cam[cat.key].spot; },
-      set: function (v) { cam[cat.key].spot = v; }
+      }
     });
-    spot.classList.add('sens-spot');
+  }
 
-    return el('div', { class: 'sens-col' }, [
-      el('div', { class: 'sens-head', html: cat.letter + '<br>' + cat.name }),
-      el('div', { class: 'sens-rows' }, rows),
-      spot
-    ]);
+  function sensColumn(cat) {
+    var slots = camera().slots[cat.letter] || {};
+    var top = [];
+    ['P1', 'P2', 'P3'].forEach(function (pn) {
+      if (slots[pn]) top.push(slotSpinner(cat, pn));
+    });
+
+    var kids = [
+      el('button', {
+        class: 'sens-head', html: cat.letter + '<br>' + cat.name,
+        title: 'Switch categories on or off for this camera',
+        onclick: openCategoryPanel
+      }),
+      el('div', { class: 'sens-rows' }, top)
+    ];
+
+    if (slots.P4) {
+      var bottom = slotSpinner(cat, 'P4');
+      bottom.classList.add('sens-spot');
+      kids.push(bottom);
+    }
+    return el('div', { class: 'sens-col' }, kids);
   }
 
   screens.sensitivity = function () {
     var cols = activeCategories();
-    var grid = el('div', { class: 'sens-cols' }, cols.map(sensColumn));
-    grid.style.gridTemplateColumns = 'repeat(' + Math.max(1, cols.length) + ', 1fr)';
+    var body;
+
+    if (!cols.length) {
+      /* Nothing switched on for this camera: the machine shows NULL, and
+         touching it reopens the category panel. */
+      body = el('div', { class: 'tab-body' }, [
+        el('button', { class: 'null-state', text: 'NULL',
+          title: 'Switch categories on for this camera', onclick: openCategoryPanel })
+      ]);
+    } else {
+      var grid = el('div', { class: 'sens-cols' }, cols.map(sensColumn));
+      grid.style.gridTemplateColumns = 'repeat(' + cols.length + ', 1fr)';
+      body = el('div', { class: 'tab-body' }, [grid]);
+    }
 
     return el('div', { class: 'screen active' }, stdChrome({}).concat([
       tabs('sensTab'),
-      el('div', { class: 'tab-body' }, [grid]),
+      body,
       footer([
         footerItem('Data Same', 'i-datasame', function () {
           UI.toast('Data Same is not used on the Pearl Mini.', true);
@@ -420,6 +456,99 @@
       ])
     ]));
   };
+
+  /* ---- Category panel ----
+     Opened from a column header or from NULL. The rockers switch categories on
+     and off for the camera tab you are on, independently of the other camera.
+     In Supervisor mode it also exposes the P1-P4 slots, which are likewise per
+     camera, plus the label editor. Slot names are file-level. */
+  /* Remove any existing overlay with this id before opening a new one, so two
+     panels can never end up in the document at once. */
+  function makeOverlay(id) {
+    var old = document.getElementById(id);
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    return el('div', { class: 'dialog-backdrop open', id: id });
+  }
+
+  function openCategoryPanel() {
+    var p = Profiles.working;
+    var cam = p[M.sensTab];
+    var letters = M.supervisor
+      ? Profiles.LETTERS
+      : Profiles.LETTERS.filter(function (L) { return p.categories[L]; });
+
+    var overlay = makeOverlay('cat-overlay');
+    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+
+    function build() {
+      overlay.innerHTML = '';
+      var cols = letters.map(function (L) {
+        var cat = catByLetter(L);
+        var on = !!(p.categories[L] && cam.active[L]);
+
+        var kids = [
+          rocker(on, false, function () {
+            if (M.supervisor) {
+              /* Supervisor switches the category on for the file and for this
+                 camera in one move, so it can be brought into use at all. */
+              var next = !(p.categories[L] && cam.active[L]);
+              p.categories[L] = next;
+              cam.active[L] = next;
+            } else {
+              cam.active[L] = !cam.active[L];
+            }
+            logEvent('Category ' + L + ' ' + (cam.active[L] ? 'on' : 'off') +
+                     ' for ' + M.sensTab + ' camera');
+            build();
+          }),
+          el('div', { class: 'name', html: L + (cat && cat.name ? '<br>' + cat.name : '<br>&nbsp;') })
+        ];
+
+        if (M.supervisor) {
+          var slots = cam.slots[L] || (cam.slots[L] = { P1: false, P2: false, P3: false, P4: false });
+          kids.push(el('div', { class: 'plist' }, ['P1', 'P2', 'P3', 'P4'].map(function (pn) {
+            return el('button', {
+              class: 'pbtn' + (slots[pn] ? ' lit' : ''),
+              text: slots[pn] ? slotLabel(L, pn) : pn,
+              title: 'Switch this parameter slot on or off for the ' + M.sensTab + ' camera',
+              onclick: function () {
+                slots[pn] = !slots[pn];
+                logEvent('Slot ' + pn + ' on category ' + L + ' ' +
+                         (slots[pn] ? 'on' : 'off') + ' for ' + M.sensTab + ' camera');
+                build();
+              }
+            });
+          })));
+        }
+        return el('div', { class: 'cat-col' }, kids);
+      });
+
+      var panel = el('div', { class: 'catpanel' + (M.supervisor ? ' wide' : '') }, [
+        el('div', { class: 'bar' }),
+        el('div', { class: 'inner' }, [
+          el('div', { class: 'cat-head', text: M.supervisor ? 'ABCDEF' : M.sensTab + ' camera' }),
+          el('div', { class: 'cat-row' }, cols),
+          el('div', { class: 'cat-foot' }, [
+            M.supervisor
+              ? el('button', { class: 'btn', text: 'File Information Modify_Label',
+                  onclick: function () { close(); go('labels'); } })
+              : el('div'),
+            el('button', { class: 'ok', title: 'Confirm', onclick: function () {
+              close(); render();
+            } }),
+            el('div')
+          ])
+        ])
+      ]);
+      overlay.appendChild(panel);
+    }
+
+    build();
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) { close(); render(); }
+    });
+    document.getElementById('stage').appendChild(overlay);
+  }
 
   /* ---- View Image ----
      Reached from the Sensitivity Regulation footer. This is the plain camera
@@ -592,12 +721,19 @@
       var wrap = el('div', { style: 'display:flex;flex-direction:column;gap:16px;margin-bottom:20px' });
       ['r', 'g', 'b'].forEach(function (k) {
         var label = { r: 'Red', g: 'Green', b: 'Blue' }[k];
-        var val = el('div', { text: String(M.cam.ref[k]),
-          style: 'font-size:23px;min-width:60px;text-align:center' });
+        var val = el('button', { class: 'num tappable', text: String(M.cam.ref[k]),
+          title: 'Touch to type a value' });
         function setv(d) {
           M.cam.ref[k] = Math.max(0, Math.min(255, M.cam.ref[k] + d));
           val.textContent = String(M.cam.ref[k]);
         }
+        val.addEventListener('click', function () {
+          UI.valueKeypad({ value: M.cam.ref[k], min: 0, max: 255 }).then(function (v) {
+            if (v === null) return;
+            M.cam.ref[k] = v;
+            val.textContent = String(v);
+          });
+        });
         wrap.appendChild(el('div', { style: 'display:flex;align-items:center;gap:14px' }, [
           el('button', { class: 'btn', text: '<', style: 'width:78px;height:62px',
             onclick: function () { setv(-1); } }),
@@ -692,7 +828,13 @@
       if (v > 70) UI.toast('Chute settings affect sorting performance and should not be changed.', true);
     }
 
-    var num = el('div', { class: 'num', text: String(p.chute) });
+    var num = el('button', { class: 'num tappable', text: String(p.chute),
+      title: 'Touch to type a value' });
+    num.addEventListener('click', function () {
+      UI.valueKeypad({ value: p.chute, min: 0, max: 100 }).then(function (v) {
+        if (v !== null) setChute(v);
+      });
+    });
 
     return el('div', { class: 'screen active' }, stdChrome({}).concat([
       el('div', { class: 'chute-panel' }, [
@@ -722,9 +864,14 @@
     var c = Profiles.working.clean;
 
     function row(label, unit, key, max) {
-      var val = el('div', { class: 'num', text: String(c[key]),
-        style: 'font-size:24px;width:70px;text-align:center' });
+      var val = el('button', { class: 'num tappable', text: String(c[key]),
+        title: 'Touch to type a value' });
       function set(v) { c[key] = Math.max(0, Math.min(max, v)); val.textContent = String(c[key]); }
+      val.addEventListener('click', function () {
+        UI.valueKeypad({ value: c[key], min: 0, max: max }).then(function (v) {
+          if (v !== null) set(v);
+        });
+      });
       return el('div', {
         style: 'display:flex;align-items:center;justify-content:center;gap:24px;margin-bottom:64px'
       }, [
@@ -771,14 +918,12 @@
       var when = d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' +
                  pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
       return el('div', {
-        class: 'file-row' + (p.id === M.selectedFileId ? ' selected' : ''),
+        class: 'file-row' + (p.locked ? ' locked' : '') +
+               (p.id === M.selectedFileId ? ' selected' : ''),
         onclick: function () { M.selectedFileId = p.id; render(); }
       }, [
         el('div', { text: '[' + (i + 1) + ']' }),
-        el('div', {}, [
-          document.createTextNode(Profiles.displayName(p)),
-          p.locked ? el('span', { class: 'lockmark', text: '● LOCKED' }) : null
-        ]),
+        el('div', { text: Profiles.displayName(p) }),
         el('div', { text: when })
       ]);
     });
@@ -807,7 +952,6 @@
       actions.push(actionBtn('Delete File', 78, doDelete, sel && sel.locked));
       actions.push(actionBtn('Rename', 78, doRename, sel && sel.locked));
       actions.push(actionBtn(sel && sel.locked ? 'Unlock' : 'Lock', 78, doLock));
-      actions.push(actionBtn('Categories', 78, function () { go('categories'); }));
     }
 
     actions.push(el('div', { class: 'spacer' }));
@@ -1219,8 +1363,7 @@
     M.feed = true;
     M.sim.running = true;
     logEvent('Sorting started on ' + title());
-    if (M.screen !== 'sensitivity') go('run');
-    else render();
+    go('run');
   }
 
   function stopSorting() {
@@ -1371,79 +1514,38 @@
     return r;
   }
 
-  /* ---- Category configuration (A-F) ----
-     Reached from File Selection. Shows why Sensitivity Regulation displays
-     A, C and D with a gap: B, E and F are switched off for coffee. */
-  screens.categories = function () {
-    var on = Profiles.working.categories;
-
-    var cols = CATEGORIES.map(function (c) {
-      var plist = [];
-      if (c.key && on[c.letter]) {
-        ['P1', 'P2', 'P3', 'P4'].forEach(function (pn) {
-          var lit = (pn === 'P1') || (pn === 'P4') || (c.scale && pn === 'P2');
-          plist.push(el('div', { class: 'pbtn' + (lit ? ' lit' : ''), text: pn }));
-        });
-      }
-      return el('div', { class: 'cat-col' }, [
-        rocker(!!on[c.letter], !c.key, function () {
-          on[c.letter] = !on[c.letter];
-          logEvent('Category ' + c.letter + (on[c.letter] ? ' enabled' : ' disabled'));
-          render();
-        }),
-        el('div', { class: 'name', html: c.letter + (c.name ? '<br>' + c.name : '<br>&nbsp;') }),
-        el('div', { class: 'plist' }, plist)
-      ]);
-    });
-
-    return el('div', { class: 'screen active' }, stdChrome({ back: 'files' }).concat([
-      el('div', {
-        style: 'position:absolute;top:150px;left:0;right:0;text-align:center;font-size:21px',
-        text: 'ABCDEF'
-      }),
-      el('div', { class: 'cat-grid' }, cols),
-      el('div', {
-        style: 'position:absolute;left:118px;bottom:40px;right:118px;display:flex;' +
-               'align-items:center;gap:24px'
-      }, [
-        el('button', { class: 'btn', text: 'File Information Modify_Label',
-          style: 'width:340px;height:70px;font-size:19px',
-          onclick: function () { go('labels'); } }),
-        el('div', { style: 'flex:1;color:#8a8a8a;font-size:16px',
-          text: 'P1\u2013P4 are the four parameter slots each category exposes. ' +
-                'Their names come from the label table.' })
-      ])
-    ]));
-  };
-
   /* ---- Parameter label table ----
-     Maps each category's P1-P4 slots to the names shown on Sensitivity
-     Regulation. This is how "P1" comes to read "Range" and "P4" reads "Spot". */
+     Reached from File Information Modify_Label on the category panel. Maps each
+     category's P1-P4 slots to the names Sensitivity Regulation displays, which
+     is how P1 comes to read "Range" and P4 "Spot". Names are file-level; which
+     slots are switched on is per camera. */
   screens.labels = function () {
-    var LABELLED = {
-      A: ['Range', 'Scale', null, 'Spot'],
-      B: ['Range', null, null, 'Spot'],
-      C: ['Range', null, null, 'Spot'],
-      D: ['Range', null, null, 'Spot']
-    };
+    var p = Profiles.working;
+    var cam = p[M.sensTab];
+
     var rows = [el('div', { class: 'lab-row lab-head' }, [
       el('div', { class: 'k', text: 'Parameters mode' }),
       el('div', { class: 'cell', text: 'P1' }), el('div', { class: 'cell', text: 'P2' }),
       el('div', { class: 'cell', text: 'P3' }), el('div', { class: 'cell', text: 'P4' })
     ])];
 
-    CATEGORIES.forEach(function (c) {
-      var map = LABELLED[c.letter];
-      rows.push(el('div', { class: 'lab-row' }, [
-        el('div', { class: 'k', text: c.letter + (c.name ? ':' + c.name : '') }),
-        ['P1', 'P2', 'P3', 'P4'].map(function (pn, i) {
-          var named = map && map[i];
-          return el('div', {
-            class: 'cell ' + (named ? 'named' : 'unnamed'),
-            text: named || pn
-          });
-        })
-      ].reduce(function (a, v) { return a.concat(v); }, [])));
+    Profiles.LETTERS.forEach(function (L) {
+      var cat = catByLetter(L);
+      var cells = [el('div', { class: 'k',
+        text: L + (cat && cat.name ? ':' + cat.name : '') })];
+
+      ['P1', 'P2', 'P3', 'P4'].forEach(function (pn) {
+        var named = p.labels[L] && p.labels[L][pn];
+        var on = cam.slots[L] && cam.slots[L][pn];
+        var cell = el('button', {
+          class: 'cell lab-cell ' + (named ? 'named' : 'unnamed') + (on ? ' on' : ''),
+          text: named || pn,
+          title: M.supervisor ? 'Rename this slot' : 'Supervisor mode is needed to rename slots',
+          onclick: function () { renameSlot(L, pn); }
+        });
+        cells.push(cell);
+      });
+      rows.push(el('div', { class: 'lab-row' }, cells));
     });
 
     ['U', 'V', 'W', 'X', 'Y'].forEach(function (L) {
@@ -1456,19 +1558,42 @@
       ]));
     });
 
-    return el('div', { class: 'screen active' }, stdChrome({ back: 'categories' }).concat([
+    return el('div', { class: 'screen active' }, stdChrome({ back: 'sensitivity' }).concat([
       el('div', {
         style: 'position:absolute;top:148px;left:0;right:0;text-align:center;font-size:20px',
-        text: Profiles.working.name
+        text: p.name
       }),
       el('div', { class: 'lab-table' }, rows),
       el('div', {
         style: 'position:absolute;left:118px;right:118px;bottom:30px;color:#8a8a8a;font-size:16px',
-        text: 'Read-only. On the machine each cell opens a label picker, and the chosen name is ' +
-              'what Sensitivity Regulation displays for that slot.'
+        text: M.supervisor
+          ? 'Touch a slot to rename it. Names are shared by both cameras; which slots are ' +
+            'switched on is set per camera in the category panel. Outlined slots are on for ' +
+            'the ' + M.sensTab + ' camera.'
+          : 'Read-only. Sign in as Supervisor to rename a slot.'
       })
     ]));
   };
+
+  function renameSlot(L, pn) {
+    if (!M.supervisor) {
+      UI.alert('Modify Label', 'Renaming a parameter slot requires Supervisor mode.');
+      return;
+    }
+    var p = Profiles.working;
+    var current = (p.labels[L] && p.labels[L][pn]) || '';
+    UI.prompt('Modify Label',
+      'Name for <strong>' + L + ' ' + pn + '</strong>. This is the name Sensitivity ' +
+      'Regulation will show for that parameter. Leave it empty to clear the name.',
+      current, { okLabel: 'Set' }
+    ).then(function (v) {
+      if (v === null) return;
+      if (!p.labels[L]) p.labels[L] = { P1: null, P2: null, P3: null, P4: null };
+      p.labels[L][pn] = v || null;
+      logEvent('Label for ' + L + ' ' + pn + ' set to ' + (v || '(none)'));
+      render();
+    });
+  }
 
   /* ---------------- routing ---------------- */
   var currentNode = null;
@@ -1477,8 +1602,10 @@
     /* A screen change always dismisses whatever dialog was open, so a prompt
        can never linger over a screen it does not belong to. */
     UI.closeDialog();
-    var stray = document.getElementById('user-overlay');
-    if (stray && stray.parentNode) stray.parentNode.removeChild(stray);
+    ['user-overlay', 'cat-overlay'].forEach(function (id) {
+      var stray = document.getElementById(id);
+      if (stray && stray.parentNode) stray.parentNode.removeChild(stray);
+    });
     M.screen = name;
     render();
   }

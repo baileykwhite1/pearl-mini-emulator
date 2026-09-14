@@ -13,10 +13,40 @@
 
   function cameraDefaults(delta) {
     return {
-      patio:  { range: 215 - delta, scale: 1, spot: 30 },
-      green:  { range: 120 - delta, spot: 45 },
-      quaker: { range: 70  - delta, spot: 45 },
-      burnt:  { range: 235 - delta, spot: 60 }
+      patio:  { range: 215 - delta, scale: 1, p3: 0, spot: 30 },
+      green:  { range: 120 - delta, scale: 1, p3: 0, spot: 45 },
+      quaker: { range: 70  - delta, scale: 1, p3: 0, spot: 45 },
+      burnt:  { range: 235 - delta, scale: 1, p3: 0, spot: 60 },
+      /* Which categories this camera is sorting on, and which P1-P4 slots each
+         one exposes. Both are per camera: switching Quaker off, or hiding a
+         parameter slot, on the front leaves the back untouched. */
+      active: { A: true, B: false, C: true, D: true, E: false, F: false },
+      slots: slotDefaults()
+    };
+  }
+
+  /* Which P1-P4 slots each category exposes. Per camera. */
+  function slotDefaults() {
+    return {
+      A: { P1: true, P2: true,  P3: false, P4: true },
+      B: { P1: true, P2: false, P3: false, P4: true },
+      C: { P1: true, P2: false, P3: false, P4: true },
+      D: { P1: true, P2: false, P3: false, P4: true },
+      E: { P1: false, P2: false, P3: false, P4: false },
+      F: { P1: false, P2: false, P3: false, P4: false }
+    };
+  }
+
+  /* What each slot is called. File-level: the label table is one table per
+     file, and renaming a slot renames it wherever it appears. */
+  function labelDefaults() {
+    return {
+      A: { P1: 'Range', P2: 'Scale', P3: null, P4: 'Spot' },
+      B: { P1: 'Range', P2: null,    P3: null, P4: 'Spot' },
+      C: { P1: 'Range', P2: null,    P3: null, P4: 'Spot' },
+      D: { P1: 'Range', P2: null,    P3: null, P4: 'Spot' },
+      E: { P1: null, P2: null, P3: null, P4: null },
+      F: { P1: null, P2: null, P3: null, P4: null }
     };
   }
 
@@ -30,7 +60,9 @@
       createdAt: opts.createdAt || Date.now(),
       F: cameraDefaults(0),
       B: cameraDefaults(FRONT_DELTA),
+      /* Which categories exist for this file at all. */
       categories: { A: true, B: false, C: true, D: true, E: false, F: false },
+      labels: labelDefaults(),
       clean: { period: 5, interval: 5 },
       chute: 50
     };
@@ -49,6 +81,31 @@
     return { profiles: [template, working], loadedId: working.id };
   }
 
+  var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+  /* Profiles stored by an earlier version lack the per-camera active set, the
+     slot switches and the labels. Fill them in rather than discard the file. */
+  function normalise(p) {
+    if (!p.categories) p.categories = { A: true, B: false, C: true, D: true, E: false, F: false };
+    if (!p.labels) p.labels = labelDefaults();
+    delete p.slots;                       // moved onto each camera
+    ['F', 'B'].forEach(function (side) {
+      var cam = p[side];
+      if (!cam) return;
+      if (!cam.green) cam.green = { range: 120, scale: 1, p3: 0, spot: 45 };
+      ['patio', 'green', 'quaker', 'burnt'].forEach(function (k) {
+        if (cam[k].scale === undefined) cam[k].scale = 1;
+        if (cam[k].p3 === undefined) cam[k].p3 = 0;
+      });
+      if (!cam.active) {
+        cam.active = {};
+        LETTERS.forEach(function (L) { cam.active[L] = !!p.categories[L]; });
+      }
+      if (!cam.slots) cam.slots = slotDefaults();
+    });
+    return p;
+  }
+
   var state = null;
 
   function load() {
@@ -58,6 +115,7 @@
       if (raw) {
         var parsed = JSON.parse(raw);
         if (parsed && parsed.profiles && parsed.profiles.length) {
+          parsed.profiles.forEach(normalise);
           state = parsed;
           return state;
         }
@@ -78,6 +136,7 @@
 
   var Profiles = {
     FRONT_DELTA: FRONT_DELTA,
+    LETTERS: LETTERS,
 
     all: function () { return load().profiles; },
 

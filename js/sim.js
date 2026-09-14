@@ -94,10 +94,18 @@
 
   /* Decide the fate of one bean against the current profile. */
   Simulator.prototype.judge = function (bean, profile) {
-    var enabled = profile.categories || { A: true, C: true, D: true };
-    var cats = ['patio', 'green', 'quaker', 'burnt'].filter(function (c) {
-      return enabled[CATEGORY_LETTER[c]];
-    });
+    var exists = profile.categories || { A: true, C: true, D: true };
+    var ALL = ['patio', 'green', 'quaker', 'burnt'];
+
+    /* Each camera sorts on its own set of categories, so a category switched
+       off on the front is still live on the back. */
+    function catsFor(cam) {
+      var active = cam.active || exists;
+      return ALL.filter(function (c) {
+        var L = CATEGORY_LETTER[c];
+        return exists[L] && active[L];
+      });
+    }
     // Dust on the glass adds reading noise; a heavily fouled window both misses
     // defects and throws out good coffee.
     var dustNoise = this.dust * 26;
@@ -109,6 +117,7 @@
 
     for (var side = 0; side < 2; side++) {
       var cam = side === 0 ? profile.F : profile.B;
+      var cats = catsFor(cam);
       for (var i = 0; i < cats.length; i++) {
         var c = cats[i];
         var reading = bean.signal[c] + gauss(0, 5 + noise);

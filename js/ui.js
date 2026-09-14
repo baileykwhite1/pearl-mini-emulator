@@ -125,6 +125,85 @@
     });
   }
 
+  /* ---- Numeric entry ----
+     Touching any number on the machine opens a keypad showing the permitted
+     MIN and MAX. Typing replaces the value; -/+ flips the sign. */
+  function valueKeypad(opts) {
+    return new Promise(function (resolve) {
+      var typed = null;                       // null means "still showing the current value"
+      var neg = false;
+
+      showDialog(function (box) {
+        box.className = 'dialog keypad valuepad';
+
+        var disp = el('div', { class: 'vp-value' });
+        function shownText() {
+          if (typed === null) return String(opts.value);
+          return (neg ? '-' : '') + (typed === '' ? '' : typed);
+        }
+        function refresh() { disp.textContent = shownText(); }
+
+        box.appendChild(el('div', { class: 'vp-head' }, [
+          el('div', { class: 'vp-lim' }, [
+            el('div', { text: 'MIN' }), el('div', { class: 'v', text: String(opts.min) })
+          ]),
+          disp,
+          el('div', { class: 'vp-lim' }, [
+            el('div', { text: 'MAX' }), el('div', { class: 'v', text: String(opts.max) })
+          ])
+        ]));
+
+        function push(ch) {
+          if (typed === null) { typed = ''; neg = false; }
+          if (ch === '.' && typed.indexOf('.') !== -1) return;
+          if (typed.length < 9) { typed += ch; refresh(); }
+        }
+
+        function key(label, onclick, cls) {
+          return el('button', { class: 'btn' + (cls ? ' ' + cls : ''), text: label, onclick: onclick });
+        }
+
+        function finish(v) { box.className = 'dialog'; closeDialog(); resolve(v); }
+
+        function confirm() {
+          if (typed === null) return finish(opts.value);
+          if (typed === '') return finish(null);
+          var n = parseFloat((neg ? '-' : '') + typed);
+          if (isNaN(n)) return finish(null);
+          if (!opts.decimals) n = Math.round(n);
+          if (n < opts.min || n > opts.max) {
+            var c = Math.max(opts.min, Math.min(opts.max, n));
+            toast('Value must be between ' + opts.min + ' and ' + opts.max +
+                  ' — using ' + c + '.', true);
+            n = c;
+          }
+          finish(n);
+        }
+
+        box.appendChild(el('div', { class: 'kp-keys' }, [
+          key('1', function () { push('1'); }), key('2', function () { push('2'); }),
+          key('3', function () { push('3'); }), key('Cancel', function () { finish(null); }),
+
+          key('4', function () { push('4'); }), key('5', function () { push('5'); }),
+          key('6', function () { push('6'); }),
+          key('Clear', function () { typed = ''; neg = false; refresh(); }),
+
+          key('7', function () { push('7'); }), key('8', function () { push('8'); }),
+          key('9', function () { push('9'); }), key('Confirm', confirm, 'tall'),
+
+          key('-/+', function () {
+            if (typed === null) { typed = String(Math.abs(opts.value)); neg = opts.value < 0; }
+            neg = !neg; refresh();
+          }),
+          key('0', function () { push('0'); }),
+          key('.', function () { push('.'); })
+        ]));
+
+        refresh();
+      });
+    });
+  }
+
   /* ---- Spinner ( < value/label > ) ---- */
   function spinner(opts) {
     var value = opts.get();
@@ -140,6 +219,18 @@
       readout.querySelector('.val').textContent = String(v);
       if (opts.onchange) opts.onchange(v);
     }
+
+    readout.classList.add('tappable');
+    readout.title = 'Touch to type a value';
+    readout.addEventListener('click', function () {
+      if (opts.disabled) return;
+      valueKeypad({ value: opts.get(), min: opts.min, max: opts.max }).then(function (v) {
+        if (v === null) return;
+        opts.set(v);
+        readout.querySelector('.val').textContent = String(opts.get());
+        if (opts.onchange) opts.onchange(opts.get());
+      });
+    });
 
     var dec = el('button', { class: 'arrow', text: '<', onclick: function () { bump(-1); } });
     var inc = el('button', { class: 'arrow', text: '>', onclick: function () { bump(1); } });
@@ -219,7 +310,7 @@
     el: el, icon: icon, toast: toast,
     alert: alertBox, confirm: confirmBox, prompt: promptBox,
     closeDialog: closeDialog, showDialog: showDialog,
-    spinner: spinner, chrome: chrome, lamps: lamps,
+    spinner: spinner, valueKeypad: valueKeypad, chrome: chrome, lamps: lamps,
     fitStage: fitStage, watchStage: watchStage
   };
 })(window);

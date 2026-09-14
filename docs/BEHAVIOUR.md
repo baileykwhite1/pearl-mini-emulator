@@ -63,6 +63,8 @@ observable in a browser session.
 | The floppy-disk icon and "Would you like to save your Parameters?" do **not** save profiles | User Manual, *An important note on Saving, and the Supervisor Mode* |
 | Overwrite also saves the cleaning settings | User Manual, *File Selection* |
 | Lock disables Overwrite and Delete; the profile can still be edited while sorting but reverts to the saved values | User Manual, *Creating and Saving Profiles* |
+| Locked profiles are listed in red text, with no other marker | User |
+| Start on Sensitivity Regulation opens the same run view as Start on the home screen | User |
 | Overwrite, Delete, Rename and Lock only appear in Supervisor mode with a profile selected | User Manual, *File Selection*; Managing Pearl Mini Profiles |
 | Profiles display a mode prefix such as `[RedMode06]` before the name | User Manual, *Creating and Saving Profiles* |
 
@@ -134,6 +136,7 @@ rather than reproducing any behaviour.
 | Touching the field opens a numeric keypad titled "Please enter password." | HMI screenshots |
 | Keypad layout is 1-2-3 / Cancel, 4-5-6 / Clear, 7-8-9 / Confirm, . 0 # | HMI screenshots |
 | Password is the machine date in `YYYYMMDD` | User Manual, *Creating and Saving Profiles* |
+| The clock stays visible over the keypad and every other dialog | User |
 | After a correct password the field reads `Supervisor`; the green tick applies it | User Manual; HMI screenshots |
 | The person icon changes colour with the signed-in level | HMI screenshots |
 
@@ -174,24 +177,44 @@ are not reproduced.
 
 ## Category and parameter configuration
 
+Reached by touching a column header on Sensitivity Regulation, or by touching
+**NULL** when nothing is switched on for that camera.
+
 | Behaviour | Source |
 |---|---|
-| A–F category switches, with the enabled ones exposing P1–P4 slots | HMI screenshots |
-| A `File Information Modify_Label` button leads to the parameter table | HMI screenshots |
-| The table maps each category's P1–P4 to a displayed name | HMI screenshots |
-| For coffee: P1 → Range, P2 → Scale (Patio only), P4 → Spot | HMI screenshots |
-| Rows continue past F with E, F, U, V, W, X, Y | HMI screenshots |
+| Touching a `A Patio` / `C Quaker` / `D Burnt` header opens a category panel | User |
+| The panel's rockers switch categories on and off **per camera** — turning Quaker off on the front leaves the back sorting on it | User |
+| With every category off for a camera, the tab body reads `NULL`, and touching NULL reopens the panel | User; HMI screenshot |
+| In Operator mode the panel lists only the categories the file has | HMI screenshot |
+| In Supervisor mode it lists all six A–F, and adds the P1–P4 slot switches and `File Information Modify_Label` | User; HMI screenshot |
+| The P1–P4 slot switches are also **per camera** | User |
+| Slot names are file-level, and `File Information Modify_Label` renames them | User; HMI screenshots |
+| For coffee: P1 → Range, P2 → Scale (Patio only), P4 → Spot; P3 unused | HMI screenshots |
+| The label table continues past F with E, F, U, V, W, X, Y | HMI screenshot |
 
-This is where `P1` comes to read `Range` and `P4` reads `Spot` on Sensitivity
-Regulation. On the machine each cell opens a label picker holding a long list of
-defect and parameter names, and a label can be added per language — the
-screenshots show `SOVDA-EN` as a language entry alongside English. The emulator
-shows the mapping read-only and does not reproduce the picker or the label editor.
+Which spinners a Sensitivity column shows is driven entirely by that camera's
+slot switches, and their names by the label table — which is how `P1` comes to
+read `Range` and `P4` reads `Spot`. Switch P2 off on the front and the Scale
+control disappears from the F tab while the B tab keeps it.
 
-**Navigation not verified.** The screenshots do not show how these screens are
-reached. The emulator puts them behind a `Categories` button in File Selection
-under Supervisor mode, because the screens are titled with a profile name. If the
-real path is different, this is the thing in the emulator most likely to be wrong.
+The simulator honours all of this: each camera is judged against its own active
+categories, so a category switched off on one camera is still caught by the
+other. Switch everything off on both and nothing is rejected at all.
+
+## Numeric entry
+
+Every number on the machine can be typed rather than stepped. Touching a value
+opens a keypad showing the permitted **MIN** and **MAX** above it, laid out
+1-2-3 / Cancel, 4-5-6 / Clear, 7-8-9 / Confirm, and `-/+` `0` `.`.
+
+This applies throughout: the Sensitivity Range, Scale and Spot values, the Dust
+Cleaning period and interval, the Chute Vibrator, the Valve Test ejector number
+and speed, and the camera Reference Values. A value outside the permitted range
+is clamped to the nearest limit with a warning rather than silently accepted.
+
+**[model]** The MIN and MAX shown come from the emulator's own limits for each
+field; the screenshots only evidence the keypad itself and one example pair
+(0 and 99 for a cleaning value).
 
 ## Deliberately not modelled
 

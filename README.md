@@ -52,8 +52,20 @@ only appear once you are signed in.
 
 Sensitivity Regulation shows `A Patio`, `C Quaker` and `D Burnt` with a gap in the
 lettering. The machine has six category slots and coffee only uses three — `B Green`,
-`E` and `F` are switched off. You can see and change that in File Selection →
-Categories.
+`E` and `F` are switched off. Touch any column header to see and change that.
+
+Those switches are **per camera**. Turn Quaker off on the F tab and the B tab keeps
+sorting on it — which you can watch in the counters: purity barely moves, because the
+back camera is still catching them. Turn everything off for a camera and the tab reads
+`NULL`; touch NULL to switch something back on.
+
+In Supervisor mode the same panel also switches the P1–P4 parameter slots on and off
+(also per camera), and `File Information Modify_Label` renames them.
+
+### Typing values
+
+Any number can be typed instead of stepped. Touch the value and a keypad opens showing
+the permitted MIN and MAX.
 
 The floppy-disk icon deliberately does **not** save your profile — same as the machine.
 Profiles are only written by **Overwrite File** in File Selection.
