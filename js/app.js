@@ -21,7 +21,7 @@
   var LEVEL_INFO = {
     operator:   { label: 'Operator',              colour: 'var(--hmi-green)' },
     supervisor: { label: 'Supervisor',            colour: 'var(--blue)' },
-    engineer:   { label: 'Manufacture Engineer',  colour: '#e8c53a' },
+    engineer:   { label: 'Manufacturer Engineer',  colour: '#e8c53a' },
     jxo:        { label: 'JXO',                   colour: '#ff3b3b' }
   };
 
@@ -42,9 +42,29 @@
       gain: { r: 373, g: 448, b: 574 },
       ref:  { r: 242, g: 242, b: 243 }
     },
-    sysNav: 'Port Setting',
+    sysNav: 'General Setting',
+    info: {
+      factory: '', number: '', selected: null,
+      lines: [
+        ' Service Telephone',
+        'knowledge.sovdacoffee.com',
+        'Service WhatsApp +1 971 200 5140',
+        'Service Email service@sovdacoffee.com'
+      ]
+    },
+    lang: {
+      size: 18,
+      font: 'Microsoft Sans Serif',
+      installed: [
+        { name: 'SimplifiedChinese', on: true },
+        { name: 'English',           on: true },
+        { name: 'Turkish',           on: false }
+      ]
+    },
     sysTab: 'COM',
     log: [],
+    logSelected: 0,
+    modeSelected: 7,
     sim: new Simulator()
   };
 
@@ -68,8 +88,12 @@
     return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   }
   function logEvent(msg, isError) {
-    M.log.unshift({ t: stamp(), msg: msg, err: !!isError });
+    var d = new Date();
+    var full = d.getFullYear() + '/' + pad2(d.getMonth() + 1) + '/' + pad2(d.getDate()) +
+               ' ' + stamp(d);
+    M.log.unshift({ t: stamp(d), stamp: full, msg: msg, err: !!isError });
     if (M.log.length > 200) M.log.pop();
+    if (M.logSelected != null) M.logSelected++;
   }
 
   /* ---------------- clock ---------------- */
@@ -1214,31 +1238,56 @@
   /* ---- Information screens ---- */
   screens.history = function () {
     var lines = M.log.length
-      ? M.log.map(function (l) {
-          return el('div', { class: 'log-line' + (l.err ? ' err' : ''), text: l.t + '  ' + l.msg });
+      ? M.log.map(function (l, i) {
+          return el('button', {
+            class: 'il-line' + (i === M.logSelected ? ' selected' : ''),
+            text: l.stamp + '  ' + l.msg,
+            onclick: function () { M.logSelected = i; render(); }
+          });
         })
-      : [el('div', { class: 'log-line', text: 'No events recorded.' })];
+      : [el('div', { class: 'il-line', text: 'No events recorded.' })];
 
-    return el('div', { class: 'screen active' }, UI.chrome({
-      title: 'Operation History', level: M.level, showSave: false,
-      onUser: onUserIcon, onBack: function () { go('home'); }
-    }).concat([el('div', { class: 'info-body' }, lines)]));
+    return el('div', { class: 'screen active' }, [
+      el('div', { class: 'titlebar', text: title() }),
+      el('div', { class: 'chrome-icons' }, [
+        el('button', { class: 'btn', text: 'Operation Note', style: 'height:70px;padding:0 26px',
+          onclick: function () {
+            UI.prompt('Operation Note',
+              'Add a note to the information list \u2014 what was run, what was changed, ' +
+              'what to tell the next shift.', '', { okLabel: 'Add' }).then(function (v) {
+              if (!v) return;
+              logEvent('Note: ' + v);
+              M.logSelected = 0;
+              render();
+            });
+          } }),
+        el('button', { class: 'chrome-icon', title: 'Back',
+          onclick: function () { go('home'); } }, [icon('i-back')])
+      ]),
+      el('div', { class: 'il-head', text: 'Information List' }),
+      el('div', { class: 'il-body' }, lines)
+    ]);
   };
 
   screens.contact = function () {
+    var info = M.info;
+    var rows = info.lines.length
+      ? info.lines.map(function (t) { return el('div', { class: 'log-line', text: t }); })
+      : [el('div', { class: 'log-line', text: 'No service information loaded.' })];
+
     return el('div', { class: 'screen active' }, UI.chrome({
       title: 'Service & Contact', level: M.level, showSave: false,
       onUser: onUserIcon, onBack: function () { go('home'); }
     }).concat([
       el('div', { class: 'info-body' }, [
-        el('p', { html: 'On a commissioned machine this screen carries the service and contact ' +
-          'details loaded by your technician.' }),
-        el('p', { style: 'margin-top:18px', html:
-          'For support, use <strong>Contact Technical Support</strong> on the SOVDA knowledge base, ' +
-          'or speak to your Technical Brand Ambassador.' }),
-        el('p', { style: 'margin-top:18px;color:#8a8a8a;font-size:17px', html:
-          'Serial number, install date and technician contact details are machine-specific and are ' +
-          'not reproduced in this emulator.' })
+        (info.factory || info.number)
+          ? el('p', { style: 'margin-bottom:14px',
+              text: [info.factory, info.number].filter(Boolean).join('   NO.: ') })
+          : null,
+        el('div', {}, rows),
+        el('p', { style: 'margin-top:22px;color:#8a8a8a;font-size:17px',
+          html: 'Loaded by your technician under System Setting \u2192 General Setting ' +
+                '\u2192 Related Info.' })
       ])
     ]));
   };
@@ -1458,8 +1507,8 @@
      Reproduced as a read-only view. The manual is explicit that changing
      anything here can cause serious sorting problems, so the emulator lets you
      recognise the screen without teaching anyone to edit it. */
-  /* Supervisor reaches General Setting only. Manufacture Engineer reaches
-     everything except Machine Type at the very bottom, which is JXO only. */
+  /* Supervisor reaches General Setting only. Manufacturer Engineer reaches
+     everything except Type of machine at the very bottom, which is JXO only. */
   var SYS_NAV = [
     { label: 'General Setting',  needs: 'supervisor' },
     { label: 'ON-OFF Settings',  needs: 'engineer' },
@@ -1468,7 +1517,7 @@
     { label: 'PLC',              needs: 'engineer' },
     { label: 'Network',          needs: 'engineer' },
     { label: 'Fault Code',       needs: 'engineer' },
-    { label: 'Machine Type',     needs: 'jxo' }
+    { label: 'Type of machine',  needs: 'jxo' }
   ];
   var SYS_TABS = ['COM', 'Vibrator Board', 'Background', 'SprayValve', 'Light'];
   var SOFTWARE_VERSION = 'JXO-VT-2.8-3527-20250419111509';
@@ -1481,25 +1530,15 @@
       M.sysNav = first ? first.label : 'General Setting';
     }
 
-    /* Anything above your level stays visible but locked, so you can see what
-       the machine has without being able to touch it. */
-    var nav = el('div', { class: 'sys-nav' }, SYS_NAV.map(function (n) {
-      var allowed = atLeast(n.needs);
+    /* Entries above your level are not shown at all: an Engineer session has
+       seven nav buttons with no Type of machine among them. */
+    var visible = SYS_NAV.filter(function (n) { return atLeast(n.needs); });
+    var nav = el('div', { class: 'sys-nav' }, visible.map(function (n) {
       return el('button', {
-        class: 'btn' + (M.sysNav === n.label ? ' active' : '') + (allowed ? '' : ' locked'),
-        title: allowed ? n.label : 'Requires ' + levelLabel(n.needs),
-        onclick: function () {
-          if (!allowed) {
-            UI.toast(n.label + ' requires ' + levelLabel(n.needs) + '.', true);
-            return;
-          }
-          M.sysNav = n.label;
-          render();
-        }
-      }, [
-        el('span', { text: n.label }),
-        allowed ? null : el('span', { class: 'nav-need', text: levelLabel(n.needs) })
-      ]);
+        class: 'btn' + (M.sysNav === n.label ? ' active' : ''),
+        text: n.label,
+        onclick: function () { M.sysNav = n.label; render(); }
+      });
     }));
 
     var panel;
@@ -1513,19 +1552,88 @@
         })),
         el('div', { class: 'sys-body' }, portBody())
       ]);
-    } else if (M.sysNav === 'General Setting') {
+    } else if (M.sysNav === 'PLC') {
       panel = el('div', { class: 'sys-panel' }, [
         el('div', { class: 'sys-body' }, [
-          el('p', { style: 'font-size:20px', text: 'General Setting' }),
-          el('dl', { style: 'margin-top:20px' }, [
-            el('dt', { text: 'Software version' }), el('dd', { text: SOFTWARE_VERSION }),
-            el('dt', { text: 'Signed in as' }),     el('dd', { text: levelLabel() }),
-            el('dt', { text: 'Language' }),         el('dd', { text: 'SOVDA-EN' }),
-            el('dt', { text: 'Machine date' }),     el('dd', { text: todayPassword() })
+          el('div', { class: 'plc-head', text: 'Signal Interface' }),
+          el('div', { class: 'plc-list' },
+            ['ETM_IN_1', 'ETM_IN_2', 'ETM_IN_3', 'ETM_IN_4', '[08]SETM_IN_1'].map(function (n) {
+              return el('div', { class: 'plc-row', text: n + '  null' });
+            })),
+          el('div', { class: 'plc-relay' }, [
+            el('div', { class: 'plc-relay-label', text: 'Electronic Relay Linkage Control' }),
+            el('div', { class: 'plc-relay-actions' }, [
+              el('button', { class: 'btn', text: 'Add', onclick: function () {
+                UI.alert('Electronic Relay Linkage Control',
+                  'Adds a relay linkage rule, tying a signal interface to an external device. ' +
+                  'Technician configuration \u2014 not reproduced.');
+              } }),
+              el('button', { class: 'btn', text: 'Delete', onclick: function () {
+                UI.toast('No linkage rules configured.', true);
+              } })
+            ])
+          ])
+        ])
+      ]);
+    } else if (M.sysNav === 'Network') {
+      panel = el('div', { class: 'sys-panel' }, [
+        el('div', { class: 'sys-body' }, [
+          el('div', { class: 'net-top' }, [
+            el('div', { class: 'net-adapter' }, [
+              el('span', { text: 'Realtek PCIe GBE Family Controller #6' }),
+              el('span', { class: 'caret', text: '\u25be' })
+            ]),
+            el('button', { class: 'refresh', title: 'Refresh', onclick: function () {
+              UI.toast('IP: 192.168.253.101');
+            } }, [icon('i-refresh')])
           ]),
-          el('p', { style: 'margin-top:22px;color:#8a8a8a;font-size:17px',
-            html: 'The emulator shows this panel read-only. It is the one System Setting ' +
-                  'panel a Supervisor can reach.' })
+          el('div', { class: 'net-ip', text: 'IP: 192.168.253.101' }),
+          el('div', { class: 'net-box' }, [
+            el('div', { class: 'net-opt' }, [
+              el('span', { class: 'box' }), el('span', { text: 'Obtain an IP address automatically' })
+            ]),
+            el('div', { class: 'net-opt' }, [
+              el('span', { class: 'box' }), el('span', { text: 'Use the following IP address' })
+            ]),
+            el('button', { class: 'btn net-btn', text: 'Network', onclick: function () {
+              UI.alert('Network',
+                'Opens the machine\u2019s network configuration. The emulator is not on a ' +
+                'network and shows the address a commissioned machine reports.');
+            } })
+          ])
+        ])
+      ]);
+    } else if (M.sysNav === 'Camera Program') {
+      panel = el('div', { class: 'sys-panel' }, [
+        el('div', { class: 'sys-body' }, [
+          el('div', { class: 'camprog-row' }, [
+            el('button', { class: 'btn camprog', text: 'Mode Switch',
+              onclick: function () { go('modelist'); } }),
+            el('button', { class: 'btn camprog', html: 'White Balance<br>Intelligent Correction',
+              onclick: function () {
+                UI.alert('White Balance Intelligent Correction',
+                  'Runs an automatic white balance correction across the cameras. Part of ' +
+                  'the technician\u2019s calibration and not reproduced. The manual white ' +
+                  'balance screen is under Camera Setting on the menu.');
+              } })
+          ])
+        ])
+      ]);
+    } else if (M.sysNav === 'ON-OFF Settings') {
+      panel = el('div', { class: 'sys-panel' }, [
+        el('div', { class: 'sys-body' }, onOffBody())
+      ]);
+    } else if (M.sysNav === 'General Setting') {
+      panel = el('div', { class: 'sys-panel' }, [
+        el('div', { class: 'sys-body general' }, [
+          el('div', { class: 'gen-grid' },
+            GENERAL_TILES
+              .filter(function (t) { return !t || atLeast(t.needs); })
+              .map(function (t) {
+                if (!t) return el('div');
+                return el('button', { class: 'gen-tile', text: t.label,
+                  onclick: function () { openGeneralItem(t.label); } });
+              }))
         ])
       ]);
     } else {
@@ -1560,6 +1668,143 @@
     ]);
   };
 
+  /* Two columns, in the order the machine lists them. The gap opposite Related
+     Info is real -- there is no tile there. A Supervisor sees the first five;
+     Time Correction and User password need Manufacturer Engineer. */
+  var GENERAL_TILES = [
+    { label: 'Device Management', needs: 'supervisor' },
+    { label: 'Desktop',           needs: 'supervisor' },
+    { label: 'Screenshot',        needs: 'supervisor' },
+    { label: 'Language Setting',  needs: 'supervisor' },
+    { label: 'Related Info',      needs: 'supervisor' },
+    null,
+    { label: 'Time Correction',   needs: 'engineer' },
+    { label: 'User password',     needs: 'engineer' }
+  ];
+
+  /* ---- Language Setting ----
+     Font size and typeface on the left, the installed display languages on the
+     right with the language-pack version above them. */
+  var LANGUAGE_PACK_VERSION = '20220111161528953';
+
+  var FONTS = ['Aharoni', 'Andalus', 'Angsana New', 'AngsanaUPC', 'Aparajita',
+    'Arabic Transparent', 'Arabic Typesetting', 'Arial', 'Arial Baltic', 'Arial Black',
+    'Arial CE', 'Arial CYR', 'Arial Greek', 'Arial TUR', 'Batang', 'BatangChe',
+    'Browallia New', 'BrowalliaUPC', 'Calibri', 'Cambria', 'Cambria Math', 'Candara',
+    'Comic Sans MS', 'Consolas', 'Constantia', 'Corbel'];
+
+  screens.language = function () {
+    var L = M.lang;
+
+    var fontList = el('div', { class: 'font-list' }, FONTS.map(function (f) {
+      return el('button', {
+        class: 'font-item' + (f === L.font ? ' selected' : ''), text: f,
+        onclick: function () { L.font = f; render(); }
+      });
+    }));
+
+    var current = L.installed.filter(function (r) { return r.on; })[0];
+
+    return el('div', { class: 'screen active' }, [
+      el('div', { class: 'lang-left' }, [
+        el('div', { class: 'lang-head', text: 'Font Size' }),
+        el('div', { class: 'font-size-row' }, [
+          el('button', { class: 'btn sq', text: '-',
+            onclick: function () { L.size = Math.max(8, L.size - 1); render(); } }),
+          el('button', { class: 'num tappable', text: String(L.size),
+            title: 'Touch to type a value',
+            onclick: function () {
+              UI.valueKeypad({ value: L.size, min: 8, max: 48 }).then(function (v) {
+                if (v !== null) { L.size = v; render(); }
+              });
+            } }),
+          el('button', { class: 'btn sq', text: '+',
+            onclick: function () { L.size = Math.min(48, L.size + 1); render(); } })
+        ]),
+        el('div', { class: 'lang-font-name', text: L.font }),
+        fontList
+      ]),
+
+      el('div', { class: 'lang-right' }, [
+        el('div', { class: 'lang-ver',
+          html: 'ver:' + LANGUAGE_PACK_VERSION + '<br>' + (current ? current.name : '\u2014') }),
+        el('div', { class: 'lang-rows' }, L.installed.map(function (row) {
+          return el('div', { class: 'lang-row' }, [
+            el('div', { class: 'lang-name', text: row.name }),
+            rocker(row.on, false, function () {
+              row.on = !row.on;
+              logEvent('Language ' + row.name + ' ' + (row.on ? 'enabled' : 'disabled'));
+              render();
+            })
+          ]);
+        }))
+      ]),
+
+      el('button', { class: 'lang-ok', title: 'Confirm',
+        onclick: function () { go('system'); } }),
+
+      el('div', { class: 'lang-note', text:
+        'The emulator records these choices but keeps its own text in English at a fixed ' +
+        'size, so the layout stays faithful to the machine.' })
+    ]);
+  };
+
+
+  function openGeneralItem(name) {
+    if (name === 'Language Setting') { go('language'); return; }
+
+    if (name === 'Related Info') { go('relatedinfo'); return; }
+
+    if (name === 'User password') { go('userpassword'); return; }
+
+    UI.alert(name, 'The emulator does not reproduce <strong>' + name + '</strong>.');
+  }
+
+  /* ---- ON-OFF Settings ----
+     The full scrolling list, in the order the machine shows it. Rows with a
+     legend are drawn as a bordered group; `parts` are the values that sit to
+     the left of the switch. A row with toggle:false has no switch at all. */
+  var ONOFF_ROWS = [
+    { group: 'FBWF', parts: ['System protection status'], on: true },
+    { group: 'Layer:Group', parts: ['[F & B]'], on: false },
+    { group: 'Data Same Setting',
+      parts: ['Equivalent Increase or Decrease  ON-OFF'], on: false },
+    { parts: ['Dedusting Detection'], on: false },
+    { parts: ['Cleaning, turn Off threshold.'], on: true },
+    { parts: ['Wait for delay after stopping feeding before ash removal\uFF1A 2s'], toggle: false },
+    { parts: ['Flexible Feeding'], on: false },
+    { parts: ['Production line following'], on: false },
+    { group: 'Production Line Control-Electronic Relay Linkage Control', parts: [], on: false },
+    { group: 'Peripheral Front Feed', parts: [], on: false },
+    { group: 'Malfunction Indicator Lamp', parts: [], on: false },
+    { group: 'Bearing Oiling',
+      parts: ['[1000]Hour(H)-Warning', '[3427]Hour(H)-Used'], on: false },
+    { group: 'Filter Element Setting',
+      parts: ['[5000]Hour(H)-Warning', '[3474]Hour(H)-Used'], on: false },
+    { group: 'Air Tank Drainage Setting',
+      parts: ['interval\uFF1A\u30102\u3011Hour(H)'], on: false },
+    { group: '(Alarm) Temperature Detection',
+      parts: ['Count:3', 'Failure alarm: > 60\u2103'], on: false },
+    { parts: ['Power Detection'], on: false },
+    { parts: ['[ Light compensation]', 'Correction'], on: false },
+    { parts: ['Ejector Self-Test', '0s'], on: false },
+    { group: 'Push Mail', parts: ['Email: NULL'], on: false },
+    { parts: ['Internet of Things (IOT)'], on: false },
+    { parts: ['Image Capture(Sampling)'], on: false }
+  ];
+
+  function onOffBody() {
+    return ONOFF_ROWS.map(function (r) {
+      var kids = [];
+      if (r.group) kids.push(el('div', { class: 'legend', text: r.group }));
+      kids.push(el('div', { class: 'oo-parts' }, r.parts.map(function (t) {
+        return el('span', { text: t });
+      })));
+      if (r.toggle !== false) kids.push(rocker(!!r.on, true));
+      return el('div', { class: 'oo-row' + (r.group ? ' grouped' : '') }, kids);
+    });
+  }
+
   function portBody() {
     if (M.sysTab === 'COM') {
       return [
@@ -1582,11 +1827,278 @@
       }
       return rows;
     }
+    if (M.sysTab === 'Light') {
+      /* The two groups are the peripherals listed on the COM tab: the ETM board
+         carries lights 0-2, the [08]SETM board 3-8. */
+      return [
+        lightGroup('ETM', [
+          { n: 0, on: true }, { n: 1, on: true }, { n: 2, on: true }
+        ]),
+        lightGroup('[08]SETM', [
+          { n: 3, on: false }, { n: 4, on: false }, { n: 5, on: false },
+          { n: 6, on: false }, { n: 7, on: false }, { n: 8, on: false }
+        ])
+      ];
+    }
+    if (M.sysTab === 'Background') {
+      return [
+        el('div', { class: 'bg-row' }, [
+          el('div', { class: 'side', text: 'F' }),
+          el('button', { class: 'btn wide', text: 'Light Adjustment   [#1]',
+            onclick: function () { lightAdjustment('F', 1); } })
+        ]),
+        el('div', { class: 'bg-row' }, [
+          el('div', { class: 'side', text: 'B' }),
+          el('button', { class: 'btn wide', text: 'Light Adjustment   [#2]',
+            onclick: function () { lightAdjustment('B', 2); } })
+        ])
+      ];
+    }
     return [el('p', {
       style: 'font-size:18px;color:#b9b9b9;line-height:1.6',
       html: 'The <strong>' + M.sysTab + '</strong> tab is part of the technician\u2019s port ' +
             'configuration and is not reproduced.'
     })];
+  }
+
+  /* Time Correction: year / month / day over hour / minute / second, each with
+     its own small up and down arrows. The emulator follows the computer clock,
+     so this shows the current time and explains rather than setting it. */
+  function openTimeCorrection() {
+    var d = new Date();
+    var fields = [
+      { key: 'year',   label: '(year)',   value: d.getFullYear(), min: 2000, max: 2099 },
+      { key: 'month',  label: '(month)',  value: d.getMonth() + 1, min: 1, max: 12 },
+      { key: 'day',    label: '(day)',    value: d.getDate(),     min: 1, max: 31 },
+      { key: 'hour',   label: '(hour)',   value: d.getHours(),    min: 0, max: 23 },
+      { key: 'minute', label: '(minute)', value: d.getMinutes(),  min: 0, max: 59 },
+      { key: 'second', label: '(second)', value: d.getSeconds(),  min: 0, max: 59 }
+    ];
+
+    UI.showDialog(function (box) {
+      box.className = 'dialog timepad';
+      box.appendChild(el('div', { class: 'kp-title', text: '(Time Correction )' }));
+
+      box.appendChild(el('div', { class: 'time-grid' }, fields.map(function (f) {
+        var val = el('div', { class: 'time-box', text: String(f.value) });
+        function bump(dir) {
+          f.value = Math.max(f.min, Math.min(f.max, f.value + dir));
+          val.textContent = String(f.value);
+        }
+        return el('div', { class: 'time-cell' }, [
+          el('div', { class: 'time-label', text: f.label }),
+          el('div', { class: 'time-input' }, [
+            val,
+            el('div', { class: 'time-arrows' }, [
+              el('button', { class: 'up',   onclick: function () { bump(1); } }),
+              el('button', { class: 'down', onclick: function () { bump(-1); } })
+            ])
+          ])
+        ]);
+      })));
+
+      box.appendChild(el('div', { class: 'time-foot' }, [
+        el('button', { class: 'ok', title: 'Confirm', onclick: function () {
+          box.className = 'dialog';
+          UI.closeDialog();
+          UI.toast('The emulator follows your computer clock, so the machine time is ' +
+                   'not changed. Note the Supervisor, Engineer and JXO passwords all ' +
+                   'come from it.', true);
+        } })
+      ]));
+    });
+  }
+
+  /* ---- Related Info ----
+     Where the factory name, machine number and service contact lines live. This
+     is what the telephone icon on the home screen displays, which is how SOVDA's
+     support details get onto a commissioned machine. */
+  screens.relatedinfo = function () {
+    var info = M.info;
+
+    var lines = info.lines.length
+      ? info.lines.map(function (t, i) {
+          return el('button', {
+            class: 'ri-line' + (i === info.selected ? ' selected' : ''), text: t,
+            onclick: function () { info.selected = i; render(); }
+          });
+        })
+      : [el('div', { class: 'ri-empty', text: 'No information added.' })];
+
+    function field(label, key) {
+      return el('button', { class: 'ri-field', title: 'Touch to type',
+        onclick: function () {
+          UI.prompt(label, null, info[key], { okLabel: 'Set' }).then(function (v) {
+            if (v === null) return;
+            info[key] = v;
+            render();
+          });
+        }
+      }, [el('span', { text: info[key] ? label + '  ' + info[key] : label })]);
+    }
+
+    return el('div', { class: 'screen active' }, [
+      el('div', { class: 'ri-panel' }, [
+        el('div', { class: 'bar' }),
+        el('div', { class: 'inner' }, [
+          field('Factory Name', 'factory'),
+          field('NO.:', 'number'),
+          el('div', { class: 'ri-body' }, [
+            el('div', { class: 'ri-lines' }, lines),
+            el('div', { class: 'ri-actions' }, [
+              el('button', { class: 'btn', text: 'Add', onclick: function () {
+                UI.prompt('Add', 'Type the line to add to the information list.', '',
+                  { okLabel: 'Add', validate: function (v) { return v ? null : 'Enter some text.'; } }
+                ).then(function (v) {
+                  if (!v) return;
+                  info.lines.push(v);
+                  info.selected = info.lines.length - 1;
+                  logEvent('Related Info line added');
+                  render();
+                });
+              } }),
+              el('button', { class: 'btn', text: 'Delete', onclick: function () {
+                if (info.selected == null || !info.lines[info.selected]) {
+                  UI.toast('Select a line first.', true);
+                  return;
+                }
+                UI.confirm('Delete',
+                  'Remove <strong>' + info.lines[info.selected] + '</strong>?', 'Delete')
+                  .then(function (ok) {
+                    if (!ok) return;
+                    info.lines.splice(info.selected, 1);
+                    info.selected = null;
+                    logEvent('Related Info line deleted');
+                    render();
+                  });
+              } })
+            ])
+          ]),
+          el('div', { class: 'ri-foot' }, [
+            el('button', { class: 'ok', title: 'Confirm',
+              onclick: function () { go('system'); } })
+          ])
+        ])
+      ])
+    ]);
+  };
+
+  /* ---- User password ---- */
+  screens.userpassword = function () {
+    var rows = ['operator', 'supervisor', 'engineer'].map(function (lv) {
+      var s2 = icon('i-person');
+      s2.style.color = LEVEL_INFO[lv].colour;
+      return el('button', { class: 'pw-row', onclick: function () {
+        UI.alert(levelLabel(lv),
+          'On the machine this is where the <strong>' + levelLabel(lv) + '</strong> password ' +
+          'is set. All three read <em>Default</em> here, meaning the machine is using its ' +
+          'built-in codes.<br><br>The emulator keeps those fixed so the levels can be ' +
+          'practised: Supervisor is the date (YYYYMMDD), Manufacturer Engineer the time ' +
+          '(HHMM), and JXO the day and time (DDHHMM).');
+      } }, [
+        s2,
+        el('div', { class: 'pw-label', text: levelLabel(lv) + ' : Default' })
+      ]);
+    });
+
+    return el('div', { class: 'screen active' }, [
+      el('button', { class: 'lang-ok', title: 'Confirm',
+        style: 'top:92px;right:150px;bottom:auto',
+        onclick: function () { go('system'); } }),
+      el('div', { class: 'pw-list' }, rows)
+    ]);
+  };
+
+  /* ---- Mode List ----
+     Every sorting mode the machine knows, as [ModeName] file. The coffee modes
+     are the ones a roastery sees: [RedMode06] and [Roasted] both run the
+     top_CaffeFruit_B1_01 camera file. */
+  var MODE_LIST = [
+    '[HSV03] top_plastic_B1_03',
+    '[PlasticMode01] top_suliao_B1_02',
+    '[RedMode01] top_HongGuaZi_B1_02',
+    '[RedMode02] top_huashengmi_xx_02',
+    '[RedMode03] top_Cicer_B1_01',
+    '[RedMode04] top_ZiHua_B1_02',
+    '[RedMode05] top_HongDou_B1_02',
+    '[RedMode06] top_CaffeFruit_B1_01',
+    '[RedMode07] top_HSM_B1_03',
+    '[RedMode08] top_HSM_B1_05',
+    '[Roasted] top_CaffeFruit_B1_01',
+    '[WhiteMode01] top_BaiGuaZi_B1_04',
+    '[WhiteMode02] top_Cicer_B1_01',
+    '[WhiteMode03] top_naihua_xx_06',
+    '[WhiteMode04] top_NaiHua_B1_07'
+  ];
+
+  screens.modelist = function () {
+    var rows = MODE_LIST.map(function (m, i) {
+      var isCurrent = m.indexOf('[' + Profiles.working.mode + ']') === 0;
+      return el('button', {
+        class: 'ml-row' + (i === M.modeSelected ? ' selected' : '') +
+               (isCurrent && i !== M.modeSelected ? ' current' : ''),
+        text: m,
+        onclick: function () { M.modeSelected = i; render(); }
+      });
+    });
+
+    function foot(label, onclick, wide) {
+      var b = el('button', { class: 'btn' + (wide ? ' wide' : ''), text: label, onclick: onclick });
+      return b;
+    }
+
+    return el('div', { class: 'screen active' }, [
+      el('div', { class: 'ml-head', text: 'Mode List' }),
+      el('div', { class: 'ml-body' }, rows),
+      el('div', { class: 'ml-foot' }, [
+        el('button', { class: 'circle-x', title: 'Cancel',
+          onclick: function () { go('system'); } }),
+        foot('Delete', function () { modeNotReproduced('Delete'); }),
+        foot('<', function () { moveMode(-1); }),
+        foot('>', function () { moveMode(1); }),
+        foot('\u25b2', function () { moveMode(-1); }),
+        foot('\u25bc', function () { moveMode(1); }),
+        foot('Modify', function () { modeNotReproduced('Modify'); }),
+        foot('Add Type', function () { modeNotReproduced('Add Type'); })
+      ])
+    ]);
+  };
+
+  function moveMode(d) {
+    M.modeSelected = Math.max(0, Math.min(MODE_LIST.length - 1, M.modeSelected + d));
+    render();
+  }
+
+  function modeNotReproduced(action) {
+    UI.alert(action,
+      '<strong>' + action + '</strong> is part of building a sorting mode: choosing the ' +
+      'material type, picking the camera file, and naming the A\u2013F categories and their ' +
+      'P1\u2013P4 parameters.<br><br>' +
+      'That is how a mode like <strong>[Roasted] top_CaffeFruit_B1_01</strong> comes to exist, ' +
+      'and it is done by a SOVDA technician when your machine is built. The emulator shows the ' +
+      'list but does not reproduce the editor.<br><br>' +
+      'The manual is explicit that Mode Switch should not be used on a commissioned machine: ' +
+      'all your profiles should show the same mode before the profile name.');
+  }
+
+  function lightGroup(legend, lamps) {
+    return el('div', { class: 'light-group' }, [
+      el('div', { class: 'legend', text: legend }),
+      el('div', { class: 'light-row' }, lamps.map(function (l) {
+        return el('div', { class: 'light-cell' }, [
+          rocker(l.on, true),
+          el('div', { class: 'n', text: String(l.n) })
+        ]);
+      }))
+    ]);
+  }
+
+  function lightAdjustment(side, n) {
+    UI.alert('Light Adjustment [#' + n + ']',
+      'Light adjustment for the <strong>' + side + '</strong> camera\u2019s background plate.' +
+      '<br><br>This is part of the technician\u2019s calibration and is not reproduced. ' +
+      'A background plate that is lit wrongly will sort badly and needs a technician visit ' +
+      'to put right.');
   }
 
   function comGroup(legend, port, status) {
@@ -1775,9 +2287,9 @@
         '<li><strong>Supervisor</strong> — the machine date, <code>YYYYMMDD</code>' +
         ' (now <code>' + todayPassword() + '</code>). Unlocks profile Overwrite, Delete, Rename ' +
         'and Lock, the parameter slots, and General Setting.</li>' +
-        '<li><strong>Manufacture Engineer</strong> — the time, <code>HHMM</code>' +
+        '<li><strong>Manufacturer Engineer</strong> — the time, <code>HHMM</code>' +
         ' (now <code>' + engineerPassword() + '</code>). All of System Setting except ' +
-        'Machine Type.</li>' +
+        'Type of machine.</li>' +
         '<li><strong>JXO</strong> — day and time, <code>DDHHMM</code>' +
         ' (now <code>' + jxoPassword() + '</code>). Factory mode: everything.</li>' +
         '</ul>' +

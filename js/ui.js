@@ -248,7 +248,7 @@
   };
   var LEVEL_NAMES = {
     operator: 'Operator', supervisor: 'Supervisor',
-    engineer: 'Manufacture Engineer', jxo: 'JXO'
+    engineer: 'Manufacturer Engineer', jxo: 'JXO'
   };
 
   function chrome(opts) {

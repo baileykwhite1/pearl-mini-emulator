@@ -136,7 +136,7 @@ Four levels. One keypad: the code you type decides which level you land on.
 |---|---|---|---|
 | **Operator** | Green | none | No System Setting at all |
 | **Supervisor** | Blue | machine date, `YYYYMMDD` | General Setting only |
-| **Manufacture Engineer** | Yellow | time, `HHMM` | All of System Setting except Machine Type |
+| **Manufacturer Engineer** | Yellow | time, `HHMM` | All of System Setting except Machine Type |
 | **JXO** | Red | day and time, `DDHHMM` | Everything — factory mode |
 
 | Behaviour | Source |
@@ -145,7 +145,7 @@ Four levels. One keypad: the code you type decides which level you land on.
 | Touching the field opens a numeric keypad titled "Please enter password." | HMI screenshots |
 | Keypad layout is 1-2-3 / Cancel, 4-5-6 / Clear, 7-8-9 / Confirm, . 0 # | HMI screenshots |
 | Supervisor password is the machine date in `YYYYMMDD` | User Manual, *Creating and Saving Profiles* |
-| Manufacture Engineer password is `HHMM`; JXO is `DDHHMM` | User |
+| Manufacturer Engineer password is `HHMM`; JXO is `DDHHMM` | User |
 | After a correct password the field names the level; the green tick applies it | User Manual; HMI screenshots |
 | The person icon takes the level's colour | HMI screenshots |
 | Machine Type sits at the very bottom of the System Setting navigation, JXO only | User |
@@ -182,20 +182,90 @@ warning: on a real machine these belong to the technician's calibration.
 
 ## System Setting
 
-Reproduced as a read-only view so the screen is recognisable without teaching
-anyone to change it.
+Reproduced read-only, and gated by level: entries above your level are not shown
+at all. An Engineer session has seven nav buttons with no Type of machine among
+them; a Supervisor session has one.
 
 - Title carries the software version string, e.g. `JXO-VT-2.8-3527-20250419111509`
 - **Save&Restart** beside the floppy icon (disabled in the emulator)
-- Left navigation: General Setting, ON-OFF Settings, Port Setting, Camera Program,
-  PLC, Network, Fault Code
-- Port Setting tabs: COM, Vibrator Board, Background, SprayValve, Light
-- COM shows a Peripheral List with COM-A → `COM1 · ETM_V3x Connected` and
-  COM-B → `COM2 · [08]SETM_DIDO Connected`
-- Vibrator Board lists 16 rows; row 1 is `1 sorting · 1 · Chute Vibrator`, enabled
+- Navigation: General Setting, ON-OFF Settings, Port Setting, Camera Program,
+  PLC, Network, Fault Code, and **Type of machine** at the very bottom (JXO only)
 
-Only COM and Vibrator Board carry real content. The rest state plainly that they
-are not reproduced.
+### General Setting
+
+Two columns of tiles. Supervisor sees the first five; Time Correction and User
+password need Manufacturer Engineer.
+
+| | |
+|---|---|
+| Device Management | Desktop |
+| Screenshot | Language Setting |
+| Related Info | *(no tile)* |
+| Time Correction | User password |
+
+- **Language Setting** — font size, a typeface list, and the installed display
+  languages (SimplifiedChinese, English, Turkish) with the language-pack version
+- **Related Info** — Factory Name, NO.:, and a list of service lines with Add and
+  Delete. This is where SOVDA's support details are loaded, and it is what the
+  telephone icon on the home screen shows
+- **Time Correction** — year / month / day over hour / minute / second
+- **User password** — Operator, Supervisor and Manufacturer Engineer, each
+  reading *Default*. JXO is not listed
+
+### ON-OFF Settings
+
+The full scrolling list of 21 rows, in machine order, from *FBWF · System
+protection status* through to *Image Capture(Sampling)*. Two are on by default:
+System protection status, and "Cleaning, turn Off threshold.". One row —
+"Wait for delay after stopping feeding before ash removal: 2s" — has no switch.
+
+Two rows tie back to the manual's maintenance section: **Filter Element Setting**
+warns at 5000 hours, which is the filter-change interval the manual describes, and
+**Bearing Oiling** warns at 1000.
+
+### Port Setting
+
+Tabs: COM, Vibrator Board, Background, SprayValve, Light.
+
+- **COM** — Peripheral List, COM-A → `COM1 · ETM_V3x Connected`,
+  COM-B → `COM2 · [08]SETM_DIDO Connected`
+- **Vibrator Board** — 16 rows; row 1 is `1 sorting · 1 · Chute Vibrator`, enabled
+- **Background** — F and B, each with a Light Adjustment button
+- **Light** — ETM carries lamps 0–2 (on), [08]SETM carries 3–8 (off). The two
+  groups are the peripherals the COM tab lists
+
+### Camera Program, PLC, Network
+
+- **Camera Program** — Mode Switch and White Balance Intelligent Correction
+- **PLC** — Signal Interface list (ETM_IN_1–4, [08]SETM_IN_1, all null) and
+  Electronic Relay Linkage Control with Add and Delete
+- **Network** — adapter `Realtek PCIe GBE Family Controller #6`,
+  `IP: 192.168.253.101`, and the automatic/manual address options
+
+### Mode List
+
+Camera Program → Mode Switch opens the Mode List: every sorting mode the machine
+knows, as `[ModeName] camera_file`. Coffee runs `[RedMode06] top_CaffeFruit_B1_01`
+and `[Roasted] top_CaffeFruit_B1_01`; the rest are other crops. Footer: Delete,
+`<` `>` `▲` `▼`, Modify, Add Type.
+
+Modify and Add Type build a mode — material type, camera file, then naming the
+A–F categories and their P1–P4 parameters. That is a technician job done when the
+machine is built, and the manual is explicit that Mode Switch should not be used
+on a commissioned machine. The emulator shows the list and explains the flow
+rather than reproducing the editor.
+
+**Version note.** These panels come from two machines: `2.8-3527` (the five Port
+Setting tabs, Light) and `2.8.3.0-3425` (General Setting, ON-OFF Settings, PLC,
+Network, Mode List). The older machine labels the Port Setting tabs differently —
+Port Setting / Vibrator Board Port Setting / Background. The emulator follows the
+`2.8-3527` tab set.
+
+## Information List
+
+The notepad icon opens the Information List: the machine's operation history with
+full timestamps, the selected row highlighted red, and an **Operation Note**
+button for adding your own entries.
 
 ## Category and parameter configuration
 

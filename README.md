@@ -51,7 +51,7 @@ visible over the keypad, because three of the four codes are made from it.
 |---|---|---|---|
 | Operator | Green | none | No System Setting |
 | Supervisor | Blue | machine date, `YYYYMMDD` | General Setting only |
-| Manufacture Engineer | Yellow | time, `HHMM` | All System Setting except Machine Type |
+| Manufacturer Engineer | Yellow | time, `HHMM` | All System Setting except Machine Type |
 | JXO | Red | day and time, `DDHHMM` | Everything |
 
 Overwrite, Delete, Rename and Lock appear at Supervisor and above.
@@ -80,7 +80,10 @@ Profiles are only written by **Overwrite File** in File Selection.
 
 ## What it does not do
 
-Camera Setting and System Setting are reproduced but **read-only**, behind a warning:
+System Setting is reproduced in full and gated by level — General Setting with its
+seven tiles, the 21-row ON-OFF Settings list, Port Setting's five tabs, Camera Program,
+PLC, Network, and Type of machine for JXO. Camera Setting and System Setting are
+**read-only**, behind a warning:
 on a real machine changing them causes sorting problems that need a technician visit to
 put right. Background Plate Setting, AI Mode, and the label picker behind the parameter
 table are not reproduced at all.
