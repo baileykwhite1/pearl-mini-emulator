@@ -106,8 +106,11 @@ screenshot: network, service contact, operation history, user switching, file se
 feed settings, forced cleaning cycle.
 
 "Data Same" and "Mode Switch" are present but inert — the manual states both are not
-used on the Pearl Mini. AI Mode is not implemented; the manual does not recommend its
-use at present.
+used on the Pearl Mini. The **Artificial Intelligence** tile does nothing at all, at
+any user level, which is what it does on the machine.
+
+The menu tiles carry no level captions; the machine does not label them, and a tile
+above your level says so when you touch it.
 
 ## Menu
 
@@ -176,11 +179,19 @@ Four screens share the camera view, and it is worth keeping them apart:
 | **View Image** | Sensitivity Regulation footer | The plain camera view: background plate, faint vertical streaking, and whatever coffee is passing. No readout, no sampling box, no controls. |
 | **Camera Setting** | Menu tile | Delay, Width and the Red/Green/Blue gains, per camera on F and B tabs. Delay and Width time the ejector against the bean. Footer: Data Same, Translation Correction, White Balance, Feed Setting, Start. |
 | **White Balance** | Camera Setting footer | The camera view with a `T:` readout, a drag-to-sample box that switches the readout to `R: G: B: T:`, the Red/Green/Blue gains, Auto Regulation and Reference Value. |
-| **Background Plate Setting** | Menu tile | The camera view with the three plate lights, L1/L2/L3, beneath it. |
+| **Background Plate Setting** | Menu tile | The camera view with the three plate lamps, L1/L2/L3, beneath it. L1 is white, L2 blue, L3 red; the plate colour is what the three mix to. |
 | **Translation Correction** | Camera Setting footer | The line-scan profile across the chute: red and green channel traces, the ejector row, and the scan window set by Start and End Address, with a Direction toggle. |
 
+A coffee machine runs the blue lamp alone, which is why the plate reads blue —
+the emulator mixes the three lamps to produce the plate colour, so the
+calibrated `0 / 30 / 0` gives exactly the blue the screenshots show, and turning
+another lamp up changes what the camera sees. Because the cameras read defects
+against that plate, mislighting it costs contrast and the sorting degrades,
+which is what the manual warns about. **[model]** The size of that effect, and
+the lamp mix itself, are the emulator's own.
+
 Seeded values, all from the screenshots: Delay 23, Width 4, gains 0 / 0 / 25;
-plate lights 0 / 30 / 0; scan window 15 to 1009; white-balance gains 373 / 448 /
+plate lamps 0 / 30 / 0; scan window 15 to 1009; white-balance gains 373 / 448 /
 574 with reference values 242 / 242 / 243. Camera Setting and Background Plate
 Setting sit behind the Supervisor warning: on a real machine these belong to the
 technician's calibration.

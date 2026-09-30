@@ -358,7 +358,7 @@
     { label: 'Dust Cleaning Setting',  icon: 't-clean',       to: 'cleaning' },
     { label: 'Feed Setting',           icon: 't-feed',        to: 'chute' },
     { label: 'File Selection',         icon: 't-file',        to: 'files' },
-    { label: 'Artificial Intelligence',icon: 't-ai',          to: 'ai' },
+    { label: 'Artificial Intelligence',icon: 't-ai',          inert: true },
     { label: 'Valve Test',             icon: 't-valve',       to: 'valvetest' },
     { label: 'Camera Setting',         icon: 't-camera',      to: 'camerasetting', warn: true },
     { label: 'Background Plate Setting', icon: 't-bgplate',   to: 'bgplate', warn: true },
@@ -368,13 +368,11 @@
   screens.menu = function () {
     var tiles = MENU.map(function (m) {
       var kids = [icon(m.icon), el('span', { text: m.label })];
-      if (m.protected || m.needs || m.warn) {
-        kids.push(el('span', { class: 'tile-note',
-          text: levelLabel(m.needs || 'supervisor') }));
-      }
       return el('button', {
         class: 'menu-icon',
         onclick: function () {
+          /* AI Mode does nothing on the machine, at any level. */
+          if (m.inert) return;
           if (m.protected) return openProtected(m.label);
           if (m.warn) return openWithWarning(m.label, m.to);
           if (m.needs && !atLeast(m.needs)) {
@@ -391,15 +389,28 @@
     ]));
   };
 
+  var WARNINGS = {
+    'Camera Setting':
+      '<strong>Camera Setting is part of the technician\u2019s calibration.</strong><br><br>' +
+      'Delay and Width time the ejector against the bean, and the gains trim the sensor. ' +
+      'Get them wrong on a real machine and it will miss defects or blow away good coffee, ' +
+      'and it needs a technician visit to put right.',
+    'Background Plate Setting':
+      '<strong>The background plate is what the cameras read defects against.</strong><br><br>' +
+      'L1 is the white lamp, L2 the blue and L3 the red. A coffee machine runs the blue lamp ' +
+      'alone, which is why the plate reads blue. Light it any other way and you lose the ' +
+      'contrast the sorting depends on.'
+  };
+
   function openWithWarning(name, to) {
     if (!M.supervisor) {
       UI.alert(name, 'This screen requires Supervisor mode. Use the person icon to sign in.');
       return;
     }
-    UI.confirm(name,
-      '<strong>White balance is part of the technician\u2019s calibration.</strong><br><br>' +
-      'Look, but do not change the gains or reference values on a real machine \u2014 a camera ' +
-      'that is out of balance will sort badly and needs a technician visit to put right.',
+    UI.confirm(name, WARNINGS[name] ||
+      '<strong>This screen is part of the technician\u2019s calibration.</strong><br><br>' +
+      'Look, but do not change it on a real machine \u2014 it will sort badly and needs a ' +
+      'technician visit to put right.',
       'I understand'
     ).then(function (ok) {
       if (!ok) return;
@@ -427,20 +438,6 @@
       }
     });
   }
-
-  /* ---- Artificial Intelligence ---- */
-  screens.ai = function () {
-    return el('div', { class: 'screen active' }, stdChrome({}).concat([
-      el('div', { class: 'info-body' }, [
-        el('p', { html: '<strong>AI Mode is an experimental feature.</strong>' }),
-        el('p', { style: 'margin-top:16px', html:
-          'SOVDA does not recommend using it at present. If you would like to learn more, contact ' +
-          'your Technical Brand Ambassador or the Service Department.' }),
-        el('p', { style: 'margin-top:16px;color:#8a8a8a;font-size:17px', html:
-          'The emulator does not reproduce AI Mode behaviour.' })
-      ])
-    ]));
-  };
 
   /* ---- Sensitivity Regulation ----
      Columns are the categories that exist for the file AND are switched on for
@@ -688,35 +685,62 @@
   };
 
   /* ---- Background Plate Setting ----
-     The same camera view, with the three plate lights beneath it. */
+     The same camera view, with the three plate lamps beneath it. L1 is the
+     white lamp, L2 the blue and L3 the red; the plate colour is whatever the
+     three of them mix to. A coffee machine runs L2 alone, which is why the
+     plate reads blue. */
+  var PLATE_LAMPS = [
+    { key: 'L1', name: 'White', rgb: [255, 255, 255] },
+    { key: 'L2', name: 'Blue',  rgb: [60, 90, 255] },
+    { key: 'L3', name: 'Red',   rgb: [255, 60, 60] }
+  ];
+
+  /* Full output at 30, which is where a commissioned machine sets its blue. */
+  var LAMP_FULL = 30;
+
+  function plateColour(cam) {
+    var r = 0, g = 0, b = 0;
+    PLATE_LAMPS.forEach(function (l) {
+      var w = Math.max(0, Math.min(1, (cam[l.key] || 0) / LAMP_FULL));
+      r += l.rgb[0] * w; g += l.rgb[1] * w; b += l.rgb[2] * w;
+    });
+    return {
+      r: Math.round(Math.min(255, r)),
+      g: Math.round(Math.min(255, g)),
+      b: Math.round(Math.min(255, b))
+    };
+  }
   screens.bgplate = function () {
     var cam = camera();
     var canvas = el('canvas', { width: 1040, height: 518 });
     var view = el('div', { class: 'cam-view' }, [canvas]);
     var readout = el('div', { class: 'cam-readout rgb' });
-    readout.textContent = 'R:' + pad3(M.cam.r) + '  G:' + pad3(M.cam.g) +
-                          '  B:' + pad3(M.cam.b) + '  T:' + M.cam.temp.toFixed(1);
+    var pc = plateColour(cam);
+    readout.textContent = 'R:' + pad3(pc.r) + '  G:' + pad3(pc.g) +
+                          '  B:' + pad3(pc.b) + '  T:' + M.cam.temp.toFixed(1);
     view.appendChild(readout);
 
-    function light(key) {
-      return el('button', { class: 'btn plate-light', title: 'Touch to type a value',
+    function light(lamp) {
+      return el('button', {
+        class: 'btn plate-light', title: lamp.name + ' lamp \u2014 touch to type a value',
         onclick: function () {
-          UI.valueKeypad({ value: cam[key], min: 0, max: 255 }).then(function (v) {
+          UI.valueKeypad({ value: cam[lamp.key], min: 0, max: 255 }).then(function (v) {
             if (v === null) return;
-            cam[key] = v;
-            logEvent('Background plate ' + key + ' set to ' + v + ' on ' + M.sensTab);
+            cam[lamp.key] = v;
+            logEvent('Background plate ' + lamp.key + ' (' + lamp.name + ') set to ' +
+                     v + ' on ' + M.sensTab);
             render();
           });
         } }, [
-        el('div', { class: 'big', text: String(cam[key]) }),
-        el('div', { text: key })
+        el('div', { class: 'big', text: String(cam[lamp.key]) }),
+        el('div', { text: lamp.key })
       ]);
     }
 
     var node = el('div', { class: 'screen active' }, [
       camToolbar('menu'),
       view,
-      el('div', { class: 'cam-footer' }, [light('L1'), light('L2'), light('L3')]),
+      el('div', { class: 'cam-footer' }, PLATE_LAMPS.map(light)),
       el('button', {
         class: 'footer-item', style: 'position:absolute;right:150px;bottom:6px',
         onclick: M.sim.running ? stopSorting : startSorting
@@ -976,9 +1000,10 @@
 
   /* Sampling the background plate returns the plate colour plus sensor noise. */
   function sampleBox() {
-    M.cam.r = 65 + (Math.random() - 0.5) * 6;
-    M.cam.g = 93 + (Math.random() - 0.5) * 6;
-    M.cam.b = 255;
+    var pc = plateColour(Profiles.working[M.sensTab]);
+    M.cam.r = Math.max(0, Math.min(255, pc.r + (Math.random() - 0.5) * 6));
+    M.cam.g = Math.max(0, Math.min(255, pc.g + (Math.random() - 0.5) * 6));
+    M.cam.b = Math.max(0, Math.min(255, pc.b + (Math.random() - 0.5) * 6));
     M.cam.sampled = true;
   }
 
@@ -1043,12 +1068,18 @@
     var g = canvas.getContext('2d');
     var W = canvas.width, H = canvas.height;
 
-    /* The background plate fills the frame: a deep blue with very faint
-       vertical streaking from the line-scan sensor. */
+    /* The background plate fills the frame, lit by whatever mix of the three
+       lamps is set, with very faint vertical streaking from the line-scan
+       sensor. */
+    var pc = plateColour(Profiles.working[M.sensTab]);
+    function shade(f) {
+      return 'rgb(' + Math.round(pc.r * f) + ',' + Math.round(pc.g * f) + ',' +
+             Math.round(pc.b * f) + ')';
+    }
     var grd = g.createLinearGradient(0, 0, W, 0);
-    grd.addColorStop(0, '#4038f2');
-    grd.addColorStop(0.45, '#4a44ff');
-    grd.addColorStop(1, '#3d35ee');
+    grd.addColorStop(0, shade(0.94));
+    grd.addColorStop(0.45, shade(1));
+    grd.addColorStop(1, shade(0.92));
     g.fillStyle = grd;
     g.fillRect(0, 0, W, H);
 

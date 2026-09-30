@@ -97,6 +97,19 @@
     var exists = profile.categories || { A: true, C: true, D: true };
     var ALL = ['patio', 'green', 'quaker', 'burnt'];
 
+    /* The cameras read defects against the background plate. Lighting it away
+       from the calibration the technician set costs contrast, so readings get
+       noisier -- which is what the manual warns about for Background Plate
+       Setting. Calibrated for coffee is L2 alone at 30.
+       [model] The size of the effect is the emulator's own. */
+    function plateNoise(cam) {
+      if (cam.L1 === undefined) return 0;
+      var d = Math.abs((cam.L1 || 0) - 0) +
+              Math.abs((cam.L2 || 0) - 30) +
+              Math.abs((cam.L3 || 0) - 0);
+      return Math.min(1, d / 30) * 26;
+    }
+
     /* Each camera sorts on its own set of categories, so a category switched
        off on the front is still live on the back. */
     function catsFor(cam) {
@@ -118,9 +131,10 @@
     for (var side = 0; side < 2; side++) {
       var cam = side === 0 ? profile.F : profile.B;
       var cats = catsFor(cam);
+      var camNoise = Math.sqrt(noise * noise + Math.pow(plateNoise(cam), 2));
       for (var i = 0; i < cats.length; i++) {
         var c = cats[i];
-        var reading = bean.signal[c] + gauss(0, 5 + noise);
+        var reading = bean.signal[c] + gauss(0, 5 + camNoise);
         var setting = cam[c];
         if (bean.spot >= setting.spot && reading > setting.range) {
           return { eject: true, category: c };

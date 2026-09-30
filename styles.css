@@ -302,10 +302,7 @@ html, body {
 .menu-tile:hover { background: #161616; }
 .menu-tile:active { background: var(--btn-bg-active); }
 .menu-tile.locked { color: #7b7b7b; border-color: #333; }
-.menu-tile .lock-note {
-  position: absolute; bottom: 10px; left: 0; right: 0;
-  font-size: 14px; color: var(--hmi-green-dim);
-}
+
 
 /* ---- File selection ---- */
 .file-table {
@@ -558,9 +555,7 @@ html, body {
 }
 .menu-icon svg { width: 104px; height: 104px; }
 .menu-icon:active { transform: scale(0.95); }
-.menu-icon .tile-note {
-  font-size: 14px; color: var(--hmi-green-dim); margin-top: -8px;
-}
+
 
 /* ---- Camera view (View Image) ---- */
 .cam-toolbar {
@@ -1268,3 +1263,4 @@ button.num:active { background: var(--btn-bg-active); }
 }
 .trace-addrs { flex: 1; display: flex; justify-content: center; gap: 26px; }
 .trace-addrs .readout { cursor: pointer; }
+
