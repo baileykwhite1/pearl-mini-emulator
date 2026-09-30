@@ -1264,3 +1264,22 @@ button.num:active { background: var(--btn-bg-active); }
 .trace-addrs { flex: 1; display: flex; justify-content: center; gap: 26px; }
 .trace-addrs .readout { cursor: pointer; }
 
+
+/* ---- No access ----
+   What a screen above your level gives you: the message and a green tick. */
+.noaccess { width: 520px; }
+.noaccess .na-msg {
+  text-align: center; font-size: 26px; color: var(--text);
+  padding: 22px 0 30px;
+}
+.noaccess .na-foot { display: grid; place-items: center; }
+.noaccess .ok {
+  width: 76px; height: 76px; border-radius: 50%;
+  background: #00d420; border: 0; cursor: pointer;
+  display: grid; place-items: center;
+}
+.noaccess .ok::after {
+  content: ""; width: 33px; height: 18px;
+  border-left: 7px solid #111; border-bottom: 7px solid #111;
+  transform: rotate(-45deg) translate(3px, -5px);
+}

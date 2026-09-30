@@ -158,9 +158,9 @@ Supervisor and above also unlock the profile operations the manual describes —
 Overwrite, Delete, Rename and Lock — plus the P1–P4 slot switches, the label
 editor, and the Camera Setting and Background Plate Setting tiles.
 
-Navigation entries above your level stay visible but locked, captioned with the
-level they need. That is an emulator choice, so a trainee can see what the
-machine has without being able to open it. **[model]**
+Touching a menu tile above your level gives you **No access** and a green tick,
+and nothing else. Inside System Setting the navigation entries above your level
+are not shown at all.
 
 **[model]** The two time-based codes also accept the previous minute, so a code
 that was correct when you started typing still works when you press Confirm.

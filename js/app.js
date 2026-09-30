@@ -373,13 +373,8 @@
         onclick: function () {
           /* AI Mode does nothing on the machine, at any level. */
           if (m.inert) return;
-          if (m.protected) return openProtected(m.label);
           if (m.warn) return openWithWarning(m.label, m.to);
-          if (m.needs && !atLeast(m.needs)) {
-            UI.alert(m.label, 'This screen requires ' + levelLabel(m.needs) +
-              '. Use the person icon to sign in.');
-            return;
-          }
+          if (m.needs && !atLeast(m.needs)) return noAccess();
           go(m.to);
         }
       }, kids);
@@ -402,11 +397,22 @@
       'contrast the sorting depends on.'
   };
 
+  /* What the machine gives you for a screen above your level. */
+  function noAccess() {
+    UI.showDialog(function (box) {
+      box.className = 'dialog noaccess';
+      box.appendChild(el('div', { class: 'na-msg', text: 'No access' }));
+      box.appendChild(el('div', { class: 'na-foot' }, [
+        el('button', { class: 'ok', title: 'OK', onclick: function () {
+          box.className = 'dialog';
+          UI.closeDialog();
+        } })
+      ]));
+    });
+  }
+
   function openWithWarning(name, to) {
-    if (!M.supervisor) {
-      UI.alert(name, 'This screen requires Supervisor mode. Use the person icon to sign in.');
-      return;
-    }
+    if (!M.supervisor) return noAccess();
     UI.confirm(name, WARNINGS[name] ||
       '<strong>This screen is part of the technician\u2019s calibration.</strong><br><br>' +
       'Look, but do not change it on a real machine \u2014 it will sort badly and needs a ' +
@@ -416,26 +422,6 @@
       if (!ok) return;
       logEvent(name + ' opened in Supervisor mode', true);
       go(to);
-    });
-  }
-
-  function openProtected(name) {
-    if (!M.supervisor) {
-      UI.alert(name, 'This screen requires Supervisor mode. Use the person icon to sign in.');
-      return;
-    }
-    UI.confirm(name,
-      '<strong>These settings are calibrated by a SOVDA technician.</strong><br><br>' +
-      'Changing them can cause serious sorting performance issues and may require a technician ' +
-      'visit to recalibrate the machine. Contact your Technical Brand Ambassador or the Service ' +
-      'Department before proceeding.',
-      'I understand'
-    ).then(function (ok) {
-      if (ok) {
-        UI.alert(name, 'This emulator deliberately does not reproduce ' + name +
-          '. On a real Pearl Mini these values belong to the technician\u2019s calibration.');
-        logEvent(name + ' opened in Supervisor mode', true);
-      }
     });
   }
 
