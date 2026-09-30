@@ -169,16 +169,21 @@ empty. Every other panel states plainly that it is not reproduced.
 
 ## Camera screens
 
-These are two different screens and it is worth keeping them apart:
+Four screens share the camera view, and it is worth keeping them apart:
 
 | Screen | Reached from | Contents |
 |---|---|---|
 | **View Image** | Sensitivity Regulation footer | The plain camera view: background plate, faint vertical streaking, and whatever coffee is passing. No readout, no sampling box, no controls. |
-| **Camera Setting** (white balance) | Menu tile, Supervisor | The same view plus a `T:` temperature readout, a drag-to-sample box that switches the readout to `R: G: B: T:`, the Red/Green/Blue gains, Auto Regulation and Reference Value. |
+| **Camera Setting** | Menu tile | Delay, Width and the Red/Green/Blue gains, per camera on F and B tabs. Delay and Width time the ejector against the bean. Footer: Data Same, Translation Correction, White Balance, Feed Setting, Start. |
+| **White Balance** | Camera Setting footer | The camera view with a `T:` readout, a drag-to-sample box that switches the readout to `R: G: B: T:`, the Red/Green/Blue gains, Auto Regulation and Reference Value. |
+| **Background Plate Setting** | Menu tile | The camera view with the three plate lights, L1/L2/L3, beneath it. |
+| **Translation Correction** | Camera Setting footer | The line-scan profile across the chute: red and green channel traces, the ejector row, and the scan window set by Start and End Address, with a Direction toggle. |
 
-Reference values are seeded at R 242, G 242, B 243 and the gains at 373 / 448 /
-574, as shown in the screenshots. Camera Setting sits behind the Supervisor
-warning: on a real machine these belong to the technician's calibration.
+Seeded values, all from the screenshots: Delay 23, Width 4, gains 0 / 0 / 25;
+plate lights 0 / 30 / 0; scan window 15 to 1009; white-balance gains 373 / 448 /
+574 with reference values 242 / 242 / 243. Camera Setting and Background Plate
+Setting sit behind the Supervisor warning: on a real machine these belong to the
+technician's calibration.
 
 ## System Setting
 
@@ -314,6 +319,21 @@ control disappears from the F tab while the B tab keeps it.
 The simulator honours all of this: each camera is judged against its own active
 categories, so a category switched off on one camera is still caught by the
 other. Switch everything off on both and nothing is rejected at all.
+
+## The sorting screen
+
+Start does not navigate anywhere. The machine begins sorting and a separate
+screen opens **below** the HMI, so a profile can be tuned while you watch what it
+does. The machine itself is never resized to make room — the whole thing scales
+down together instead.
+
+The sorting screen carries the ejector LEDs as two vertical columns on the left,
+labelled **Front** and **Back** for the two cameras, the sorting chamber, and the
+counters. Stop closes it.
+
+**[model]** The layout of this screen is the emulator's own. The machine has no
+equivalent: it is there so the effect of a change can be seen while the change is
+being made.
 
 ## Numeric entry
 

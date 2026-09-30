@@ -36,15 +36,20 @@ html, body {
    than grid alignment matters: a grid clamps an item wider than its container
    to the start edge, which combined with a centre-origin scale pushes the whole
    stage off to one side on any window narrower than 1340px. */
+#stage-stack {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1340px;
+  transform-origin: center center;
+  transform: translate(-50%, -50%) scale(1);
+}
+
 #stage {
   width: 1340px;
   height: 872px;
   background: var(--bg);
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform-origin: center center;
-  transform: translate(-50%, -50%) scale(1);
+  position: relative;
   overflow: hidden;
   user-select: none;
 }
@@ -199,7 +204,7 @@ html, body {
 }
 
 /* ---- Spinner control ( < value > ) ---- */
-.spin { display: flex; align-items: stretch; gap: 8px; }
+.spin { display: flex; align-items: stretch; gap: 8px; width: 100%; max-width: 340px; }
 .spin button, .btn {
   background: var(--btn-bg);
   border: 1px solid var(--btn-border);
@@ -213,9 +218,9 @@ html, body {
 .spin button:active, .btn:active { background: var(--btn-bg-active); }
 .spin button:disabled, .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.spin .arrow { width: 104px; }
+.spin .arrow { flex: 1 1 0; min-width: 54px; max-width: 104px; }
 .spin .readout {
-  width: 122px;
+  flex: 1.25 1 0; min-width: 78px; max-width: 122px;
   border: 1px solid var(--btn-border);
   border-radius: 9px;
   display: grid; place-items: center;
@@ -228,10 +233,10 @@ html, body {
 /* ---- Sensitivity regulation ---- */
 .sens-cols {
   position: absolute; inset: 0;
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  padding: 24px 12px 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px; padding: 24px 12px 0;
 }
-.sens-col { display: flex; flex-direction: column; align-items: center; }
+.sens-col { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .sens-head {
   text-align: center; font-size: 21px; line-height: 1.35; margin-bottom: 20px;
   background: none; border: 1px solid transparent; border-radius: 8px;
@@ -378,7 +383,44 @@ html, body {
 #toast.show { opacity: 1; }
 #toast.warn { background: #1f0d0d; border-color: #ff6a6a; color: #ff9a9a; }
 
-/* ---- Ejector LED bar ---- */
+/* ---- Sorting screen ----
+   A separate screen below the machine, shown while it is running. It never
+   overlaps the machine, so nothing on the HMI is squeezed to make room. */
+#sorting-deck { width: 1340px; height: 0; overflow: hidden; }
+#sorting-deck.open {
+  height: 330px; margin-top: 10px;
+  border: 2px solid var(--hmi-green); background: #050505;
+}
+.deck-inner { display: flex; height: 100%; }
+
+.deck-leds { width: 104px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.led-caps { display: flex; gap: 8px; font-size: 14px; color: var(--text-dim); text-align: center; }
+.led-caps div { flex: 1; }
+.led-cols { flex: 1; display: flex; gap: 8px; }
+.led-col { flex: 1; flex-direction: column; gap: 2px; }
+.led-col .led { width: auto; height: auto; flex: 1; }
+
+.deck-chamber { width: 300px; padding: 10px 0; }
+.deck-chamber canvas { display: block; width: 100%; height: 100%; border: 1px solid #1c1c1c; }
+
+.deck-stats { flex: 1; padding: 12px 20px; overflow-y: auto; }
+.deck-stats .stat-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 36px; }
+.deck-stats .stat-row { padding: 4px 0; font-size: 16px; }
+.deck-stats .stat-row .v { font-size: 18px; }
+.deck-stats h3 { font-size: 13px; margin: 8px 0 2px; }
+.deck-stats .advice { font-size: 15px; padding: 10px 12px; margin-top: 10px; }
+
+.deck-side {
+  width: 168px; padding: 12px; display: flex; flex-direction: column;
+  gap: 10px; justify-content: flex-end;
+}
+.deck-side .btn { height: 54px; font-size: 16px; }
+.deck-title {
+  font-size: 14px; color: var(--hmi-green);
+  text-transform: uppercase; letter-spacing: 1.6px; margin-bottom: auto;
+}
+
+/* ---- Ejector LED bar (Valve Test) ---- *//* ---- Ejector LED bar (Valve Test) ---- */
 .led-bar {
   position: absolute;
   display: flex; flex-direction: column; gap: 3px;
@@ -1194,3 +1236,35 @@ button.num:active { background: var(--btn-bg-active); }
   text-align: center; font-size: 132px; font-weight: 300;
   letter-spacing: 44px; text-indent: 44px; color: #fff;
 }
+
+
+/* Camera Setting column */
+.camset-col {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 16px;
+}
+
+/* Background plate lights */
+.plate-light {
+  width: 168px; font-size: 19px; line-height: 1.25;
+  display: grid; place-items: center;
+}
+.plate-light .big { font-size: 24px; }
+
+/* Translation Correction */
+.trace-view {
+  position: absolute; top: 186px; bottom: 168px;
+  background: #000; border: 1px solid #1c1c1c; overflow: hidden;
+}
+.trace-view canvas { display: block; width: 100%; height: 100%; }
+.trace-footer {
+  position: absolute; bottom: 40px; height: 104px;
+  display: flex; align-items: center; gap: 26px;
+}
+.dir-btn {
+  width: 150px; height: 92px; font-size: 18px; line-height: 1.35;
+  display: grid; place-items: center;
+}
+.trace-addrs { flex: 1; display: flex; justify-content: center; gap: 26px; }
+.trace-addrs .readout { cursor: pointer; }

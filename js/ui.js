@@ -297,15 +297,17 @@
 
   /* ---- Stage scaling ---- */
   function fitStage() {
-    var stage = document.getElementById('stage');
-    if (!stage) return;
+    var stack = document.getElementById('stage-stack');
+    if (!stack) return;
     var pad = 24;
+    /* The stack is the machine plus, while it runs, the sorting screen beneath
+       it. Measuring its laid-out height means the sorting screen makes the whole
+       thing scale down rather than squeezing the machine. */
+    var h = stack.offsetHeight || 872;
     var sx = (window.innerWidth - pad) / 1340;
-    var sy = (window.innerHeight - pad) / 872;
+    var sy = (window.innerHeight - pad) / h;
     var s = Math.max(0.1, Math.min(sx, sy));
-    /* The translate keeps the stage centred on the viewport whatever the scale;
-       see the note on #stage in styles.css. */
-    stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+    stack.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
   }
 
   /* Watch the wrapper as well as the window: the page can be resized by its

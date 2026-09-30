@@ -17,6 +17,14 @@
       green:  { range: 120 - delta, scale: 1, p3: 0, spot: 45 },
       quaker: { range: 70  - delta, scale: 1, p3: 0, spot: 45 },
       burnt:  { range: 235 - delta, scale: 1, p3: 0, spot: 60 },
+      /* Camera Setting values, per camera. Delay and Width time the ejector
+         against the bean; the gains trim the sensor. */
+      delay: 23, width: 4, rgain: 0, ggain: 0, bgain: 25,
+      /* Background plate lighting, per camera. */
+      L1: 0, L2: 30, L3: 0,
+      /* Translation Correction scan window. */
+      scanStart: 15, scanEnd: 1009, scanDirection: false,
+
       /* Which categories this camera is sorting on, and which P1-P4 slots each
          one exposes. Both are per camera: switching Quaker off, or hiding a
          parameter slot, on the front leaves the back untouched. */
@@ -102,6 +110,13 @@
         LETTERS.forEach(function (L) { cam.active[L] = !!p.categories[L]; });
       }
       if (!cam.slots) cam.slots = slotDefaults();
+      if (cam.delay === undefined) {
+        cam.delay = 23; cam.width = 4; cam.rgain = 0; cam.ggain = 0; cam.bgain = 25;
+      }
+      if (cam.L1 === undefined) { cam.L1 = 0; cam.L2 = 30; cam.L3 = 0; }
+      if (cam.scanStart === undefined) {
+        cam.scanStart = 15; cam.scanEnd = 1009; cam.scanDirection = false;
+      }
     });
     return p;
   }

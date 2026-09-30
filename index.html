@@ -202,10 +202,32 @@
       <stop offset="70%" stop-color="#5ec22a"/>
       <stop offset="100%" stop-color="#2f9fe0"/>
     </linearGradient>
+
+    <!-- Camera Setting footer -->
+    <symbol id="i-translate" viewBox="0 0 64 64">
+      <path d="M12 46l26-26 8 8-26 26-10 2z" fill="#2f7fb8"/>
+      <path d="M38 20l6-6 8 8-6 6z" fill="#9a9a9a"/>
+      <path d="M12 46l-2 8 8-2z" fill="#e8e8e8"/>
+      <path d="M8 58h48" stroke="#2f9fe0" stroke-width="4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-star" viewBox="0 0 64 64">
+      <path d="M32 6l7 12 14 2-9 10 3 14-15-7-15 7 3-14-9-10 14-2z" fill="#eef2f5"
+            stroke="#b9c2c9" stroke-width="2"/>
+      <circle cx="32" cy="30" r="6" fill="#cdd6dd"/>
+    </symbol>
+    <!-- Live panel toggle -->
+    <symbol id="i-panel" viewBox="0 0 64 64">
+      <rect x="8" y="12" width="48" height="40" rx="4" fill="none"
+            stroke="currentColor" stroke-width="4"/>
+      <path d="M38 12v40" stroke="currentColor" stroke-width="4"/>
+      <path d="M14 22h16M14 30h16M14 38h10" stroke="currentColor" stroke-width="3"
+            stroke-linecap="round"/>
+    </symbol>
   </defs>
 </svg>
 
 <div id="stage-wrap">
+ <div id="stage-stack">
   <div id="stage">
 
     <div class="clock" id="clock">00:00:00 2026/01/01</div>
@@ -223,6 +245,10 @@
 
     <div id="power-off"><div class="msg">MACHINE OFF — CLICK TO POWER ON</div></div>
   </div>
+
+  <!-- The sorting view: a separate screen below the machine, shown while it runs -->
+  <div id="sorting-deck"></div>
+ </div>
 </div>
 
 <script src="js/profiles.js"></script>

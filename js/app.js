@@ -64,6 +64,7 @@
     sysTab: 'COM',
     log: [],
     logSelected: 0,
+    livePanel: true,
     modeSelected: 7,
     setup: {
       step: 1, brand: 'JXO', language: 'English', chute: 1,
@@ -359,8 +360,8 @@
     { label: 'File Selection',         icon: 't-file',        to: 'files' },
     { label: 'Artificial Intelligence',icon: 't-ai',          to: 'ai' },
     { label: 'Valve Test',             icon: 't-valve',       to: 'valvetest' },
-    { label: 'Camera Setting',         icon: 't-camera',      to: 'whitebalance', warn: true },
-    { label: 'Background Plate Setting', icon: 't-bgplate',   protected: true },
+    { label: 'Camera Setting',         icon: 't-camera',      to: 'camerasetting', warn: true },
+    { label: 'Background Plate Setting', icon: 't-bgplate',   to: 'bgplate', warn: true },
     { label: 'System Setting',         icon: 't-system',      to: 'system', needs: 'supervisor' }
   ];
 
@@ -646,6 +647,191 @@
     document.getElementById('stage').appendChild(overlay);
   }
 
+  /* ---- Camera Setting ----
+     Delay and Width time the ejector against the bean; the gains trim the
+     sensor. Per camera, so the F and B tabs hold their own values. Translation
+     Correction and White Balance open from the footer. */
+  var CAMSET_FIELDS = [
+    { key: 'delay',  label: 'Delay',      min: 0, max: 255 },
+    { key: 'width',  label: 'Width',      min: 0, max: 255 },
+    { key: 'rgain',  label: 'Red Gain',   min: 0, max: 255 },
+    { key: 'ggain',  label: 'Green Gain', min: 0, max: 255 },
+    { key: 'bgain',  label: 'Blue Gain',  min: 0, max: 255 }
+  ];
+
+  screens.camerasetting = function () {
+    var cam = camera();
+    var rows = CAMSET_FIELDS.map(function (f) {
+      return UI.spinner({
+        label: f.label, min: f.min, max: f.max,
+        get: function () { return cam[f.key]; },
+        set: function (v) { cam[f.key] = v; }
+      });
+    });
+
+    return el('div', { class: 'screen active' }, stdChrome({}).concat([
+      tabs('sensTab'),
+      el('div', { class: 'tab-body' }, [el('div', { class: 'camset-col' }, rows)]),
+      footer([
+        footerItem('Data Same', 'i-datasame', function () {
+          UI.toast('Data Same is not used on the Pearl Mini.', true);
+        }),
+        footerItem('Translation Correction', 'i-translate',
+          function () { go('translation'); }),
+        footerItem('White Balance', 'i-star', function () { go('whitebalance'); }),
+        footerItem('Feed Setting', 'i-chart', function () { go('chute'); }),
+        M.sim.running
+          ? footerItem('Stop', 'i-stop', stopSorting)
+          : footerItem('Start', 'i-start', startSorting)
+      ])
+    ]));
+  };
+
+  /* ---- Background Plate Setting ----
+     The same camera view, with the three plate lights beneath it. */
+  screens.bgplate = function () {
+    var cam = camera();
+    var canvas = el('canvas', { width: 1040, height: 518 });
+    var view = el('div', { class: 'cam-view' }, [canvas]);
+    var readout = el('div', { class: 'cam-readout rgb' });
+    readout.textContent = 'R:' + pad3(M.cam.r) + '  G:' + pad3(M.cam.g) +
+                          '  B:' + pad3(M.cam.b) + '  T:' + M.cam.temp.toFixed(1);
+    view.appendChild(readout);
+
+    function light(key) {
+      return el('button', { class: 'btn plate-light', title: 'Touch to type a value',
+        onclick: function () {
+          UI.valueKeypad({ value: cam[key], min: 0, max: 255 }).then(function (v) {
+            if (v === null) return;
+            cam[key] = v;
+            logEvent('Background plate ' + key + ' set to ' + v + ' on ' + M.sensTab);
+            render();
+          });
+        } }, [
+        el('div', { class: 'big', text: String(cam[key]) }),
+        el('div', { text: key })
+      ]);
+    }
+
+    var node = el('div', { class: 'screen active' }, [
+      camToolbar('menu'),
+      view,
+      el('div', { class: 'cam-footer' }, [light('L1'), light('L2'), light('L3')]),
+      el('button', {
+        class: 'footer-item', style: 'position:absolute;right:150px;bottom:6px',
+        onclick: M.sim.running ? stopSorting : startSorting
+      }, [icon(M.sim.running ? 'i-stop' : 'i-start')])
+    ]);
+
+    node._camCanvas = canvas;
+    node._camBox = true;
+    drawCam(canvas, { box: true });
+    return node;
+  };
+
+  /* ---- Translation Correction ----
+     The scan profile across the chute: a red and a green trace with the scan
+     window set by Start and End Address. */
+  screens.translation = function () {
+    var cam = camera();
+    var canvas = el('canvas', { width: 1040, height: 560 });
+
+    function addr(key, label) {
+      return el('div', { class: 'spin' }, [
+        el('button', { class: 'arrow', text: '<',
+          onclick: function () { cam[key] = Math.max(0, cam[key] - 1); render(); } }),
+        el('button', { class: 'readout', title: 'Touch to type a value',
+          onclick: function () {
+            UI.valueKeypad({ value: cam[key], min: 0, max: 4095 }).then(function (v) {
+              if (v !== null) { cam[key] = v; render(); }
+            });
+          } }, [
+          el('div', { class: 'val', text: String(cam[key]) }),
+          el('div', { class: 'lbl', text: label })
+        ]),
+        el('button', { class: 'arrow', text: '>',
+          onclick: function () { cam[key] = Math.min(4095, cam[key] + 1); render(); } })
+      ]);
+    }
+
+    var node = el('div', { class: 'screen active' }, [
+      camToolbar('camerasetting'),
+      el('div', { class: 'trace-view' }, [canvas]),
+      el('div', { class: 'trace-footer' }, [
+        el('button', { class: 'btn dir-btn', onclick: function () {
+          cam.scanDirection = !cam.scanDirection;
+          render();
+        } }, [
+          el('div', { text: cam.scanDirection ? 'ON' : 'OFF' }),
+          el('div', { text: 'Direction' })
+        ]),
+        el('div', { class: 'trace-addrs' }, [addr('scanStart', 'Start'),
+                                             addr('scanEnd', 'End Address')]),
+        el('button', {
+          class: 'footer-item',
+          onclick: M.sim.running ? stopSorting : startSorting
+        }, [icon(M.sim.running ? 'i-stop' : 'i-start')])
+      ])
+    ]);
+
+    node._traceCanvas = canvas;
+    drawTrace(canvas, cam);
+    return node;
+  };
+
+  /* A line-scan profile: the plate reads flat, with sensor noise on each
+     channel and the scan window marked at both ends. */
+  function drawTrace(canvas, cam) {
+    if (!canvas) return;
+    var g = canvas.getContext('2d');
+    var W = canvas.width, H = canvas.height;
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, W, H);
+
+    g.strokeStyle = '#2f6fe0';
+    g.lineWidth = 2;
+    g.beginPath(); g.moveTo(0, 2); g.lineTo(W, 2); g.stroke();
+
+    /* Scan-window rails with tick marks. */
+    var x0 = 26, x1 = W - 26;
+    g.strokeStyle = '#f5e642';
+    g.lineWidth = 3;
+    [x0, x1].forEach(function (x) {
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+      for (var t = 0; t <= 8; t++) {
+        var y = (H / 8) * t;
+        g.beginPath(); g.moveTo(x - 12, y); g.lineTo(x + 12, y); g.stroke();
+      }
+    });
+
+    /* The dashed row of ejector marks. */
+    g.lineWidth = 2;
+    for (var i = 0; i < 64; i++) {
+      var x = x0 + 12 + ((x1 - x0 - 24) / 63) * i;
+      g.beginPath(); g.moveTo(x, H * 0.44); g.lineTo(x, H * 0.52); g.stroke();
+    }
+
+    /* Two channel traces. */
+    function trace(colour, base, amp) {
+      g.strokeStyle = colour;
+      g.lineWidth = 1.4;
+      g.beginPath();
+      for (var x = x0; x <= x1; x++) {
+        var t = (x - x0) / (x1 - x0);
+        var swell = Math.sin(t * Math.PI) * 16;
+        var y = base - swell + (Math.random() - 0.5) * amp;
+        if (x === x0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+    trace('#2ee02e', H * 0.66, 18);
+    trace('#e03a3a', H * 0.78, 14);
+
+    g.fillStyle = '#f5e642';
+    g.font = '27px "Times New Roman", Georgia, serif';
+    g.fillText('T:' + (M.cam.temp * 6).toFixed(1), 40, 40);
+  }
+
   /* ---- View Image ----
      Reached from the Sensitivity Regulation footer. This is the plain camera
      view: the background plate and whatever coffee is passing it. No readout,
@@ -713,7 +899,7 @@
     });
 
     var node = el('div', { class: 'screen active' }, [
-      camToolbar('menu'),
+      camToolbar('camerasetting'),
       view,
       el('div', { class: 'cam-footer' }, [
         rgbBtn('Red', 'r'), rgbBtn('Green', 'g'), rgbBtn('Blue', 'b'),
@@ -1356,61 +1542,58 @@
   var GEOM = { chuteX: 200, chuteW: 130, ejectY: 250, h: 618 };
 
   function drawRun(node) {
-    var canvas = node._canvas;
+    if (!node || !node._canvas) return;
+    drawChamber(node._canvas, 556, 618);
+    drawStats(node._stats);
+  }
+
+  /* The sorting chamber: coffee down the chute, the ejector line, and the two
+     collection sides. Drawn at whatever size the caller asks for. */
+  function drawChamber(canvas, W, H) {
     if (!canvas) return;
     var g = canvas.getContext('2d');
-    var sim = M.sim;
+    var sx = W / 556, sy = H / 618;
+    var ejectY = GEOM.ejectY * sy;
 
     g.fillStyle = '#050505';
-    g.fillRect(0, 0, 556, 618);
+    g.fillRect(0, 0, W, H);
 
-    // Chute walls
     g.strokeStyle = '#2a2a2a';
     g.lineWidth = 2;
     g.beginPath();
-    g.moveTo(GEOM.chuteX - GEOM.chuteW / 2 - 12, 0);
-    g.lineTo(GEOM.chuteX - GEOM.chuteW / 2 - 12, GEOM.ejectY - 40);
-    g.moveTo(GEOM.chuteX + GEOM.chuteW / 2 + 12, 0);
-    g.lineTo(GEOM.chuteX + GEOM.chuteW / 2 + 12, GEOM.ejectY - 40);
+    g.moveTo((GEOM.chuteX - GEOM.chuteW / 2 - 12) * sx, 0);
+    g.lineTo((GEOM.chuteX - GEOM.chuteW / 2 - 12) * sx, ejectY - 40 * sy);
+    g.moveTo((GEOM.chuteX + GEOM.chuteW / 2 + 12) * sx, 0);
+    g.lineTo((GEOM.chuteX + GEOM.chuteW / 2 + 12) * sx, ejectY - 40 * sy);
     g.stroke();
 
-    // Ejector line
     g.strokeStyle = '#5e8f3e';
     g.setLineDash([6, 6]);
-    g.beginPath();
-    g.moveTo(0, GEOM.ejectY); g.lineTo(556, GEOM.ejectY);
-    g.stroke();
+    g.beginPath(); g.moveTo(0, ejectY); g.lineTo(W, ejectY); g.stroke();
     g.setLineDash([]);
     g.fillStyle = '#5e8f3e';
-    g.font = '13px Helvetica, Arial, sans-serif';
-    g.fillText('EJECTORS', 8, GEOM.ejectY - 8);
+    g.font = Math.max(10, Math.round(13 * sy)) + 'px Helvetica, Arial, sans-serif';
+    g.fillText('EJECTORS', 8, ejectY - 8);
 
-    // Beans
-    for (var i = 0; i < sim.beans.length; i++) {
-      var b = sim.beans[i];
+    for (var i = 0; i < M.sim.beans.length; i++) {
+      var b = M.sim.beans[i];
       g.fillStyle = Simulator.COLOURS[b.type];
       g.beginPath();
-      g.ellipse(b.x, b.y, 3.4, 2.4, 0, 0, Math.PI * 2);
+      g.ellipse(b.x * sx, b.y * sy, 3.4 * sx, 2.4 * sy, 0, 0, Math.PI * 2);
       g.fill();
     }
 
-    // Collection bins
     g.strokeStyle = '#2a2a2a';
-    g.beginPath();
-    g.moveTo(330, 540); g.lineTo(330, 618);
-    g.stroke();
+    g.beginPath(); g.moveTo(330 * sx, 540 * sy); g.lineTo(330 * sx, H); g.stroke();
     g.fillStyle = '#7a7a7a';
-    g.font = '14px Helvetica, Arial, sans-serif';
-    g.fillText('ACCEPT', 20, 600);
-    g.fillText('REJECT', 400, 600);
+    g.font = Math.max(10, Math.round(14 * sy)) + 'px Helvetica, Arial, sans-serif';
+    g.fillText('ACCEPT', 12 * sx, H - 14);
+    g.fillText('REJECT', 400 * sx, H - 14);
 
-    // Dust haze over the glass
-    if (sim.dust > 0.05) {
-      g.fillStyle = 'rgba(190,180,150,' + (sim.dust * 0.22).toFixed(3) + ')';
-      g.fillRect(0, 0, 556, GEOM.ejectY);
+    if (M.sim.dust > 0.05) {
+      g.fillStyle = 'rgba(190,180,150,' + (M.sim.dust * 0.22).toFixed(3) + ')';
+      g.fillRect(0, 0, W, ejectY);
     }
-
-    drawStats(node._stats);
   }
 
   function statRow(k, v, cls) {
@@ -1445,16 +1628,12 @@
       d.goodRejectedRate > 4 ? 'bad' : 'good'));
     box.appendChild(statRow('Good-bean yield', pct(d.goodYield), d.goodYield > 95 ? 'good' : 'bad'));
 
-    box.appendChild(el('h3', { text: 'Glass' }));
-    box.appendChild(statRow('Dust level', pct(M.sim.dust * 100), M.sim.dust > 0.5 ? 'bad' : 'good'));
-    box.appendChild(statRow('Clean interval',
-      Profiles.working.clean.interval ? Profiles.working.clean.interval + ' min' : 'OFF',
-      Profiles.working.clean.interval ? 'good' : 'bad'));
-
     box.appendChild(el('div', { class: 'advice', html: M.sim.advice() }));
   }
 
-  /* ---- Ejector LED bar (shown under the run + valve test screens) ---- */
+  /* ---- Ejector LED display ----
+     Horizontal under Valve Test, and vertical down the left edge everywhere
+     else, where the two columns are labelled for the front and back cameras. */
   function buildLedBar() {
     var bar = el('div', { class: 'led-bar', id: 'led-bar' });
     for (var r = 0; r < 2; r++) {
@@ -1465,17 +1644,69 @@
     return bar;
   }
 
-  function updateLeds() {
-    var bar = document.getElementById('led-bar');
-    if (!bar) return;
-    var rows = bar.children;
-    for (var r = 0; r < rows.length; r++) {
-      var leds = rows[r].children;
-      for (var i = 0; i < leds.length; i++) {
-        var on = M.sim.ejectorFlash[i] > 0 && M.valve;
-        leds[i].className = 'led' + (on ? ' fire' : '');
-      }
+
+  /* ---- Sorting screen ----
+     Rendered into #sorting-deck, which sits below the machine. It appears while
+     the machine runs and never overlaps the HMI, so nothing gets squeezed. */
+  var deckCanvas = null, deckStats = null;
+
+  function renderDeck() {
+    var deck = document.getElementById('sorting-deck');
+    if (!deck) return;
+
+    var show = M.sim.running && M.livePanel;
+    if (!show) {
+      deck.className = '';
+      deck.innerHTML = '';
+      deckCanvas = null; deckStats = null;
+      UI.fitStage();
+      return;
     }
+
+    if (deck.classList.contains('open')) { drawDeck(); return; }
+
+    deck.className = 'open';
+    deck.innerHTML = '';
+
+    var leds = el('div', { class: 'deck-leds' }, [
+      el('div', { class: 'led-caps' }, [
+        el('div', { text: 'Front' }), el('div', { text: 'Back' })
+      ])
+    ]);
+    var cols = el('div', { class: 'led-cols', id: 'led-bar' });
+    for (var c = 0; c < 2; c++) {
+      var col = el('div', { class: 'led-row led-col' });
+      for (var i = 0; i < Simulator.EJECTORS; i++) col.appendChild(el('div', { class: 'led' }));
+      cols.appendChild(col);
+    }
+    leds.appendChild(cols);
+
+    deckCanvas = el('canvas', { width: 300, height: 310 });
+    deckStats = el('div', { class: 'stat-cols' });
+
+    deck.appendChild(el('div', { class: 'deck-inner' }, [
+      leds,
+      el('div', { class: 'deck-chamber' }, [deckCanvas]),
+      el('div', { class: 'deck-stats' }, [deckStats]),
+      el('div', { class: 'deck-side' }, [
+        el('div', { class: 'deck-title', text: 'Sorting' }),
+        el('button', { class: 'btn', text: 'Reset counters', onclick: function () {
+          M.sim.reset(); UI.toast('Counters reset');
+        } }),
+        el('button', { class: 'btn', text: 'Hide', onclick: function () {
+          M.livePanel = false; renderDeck();
+        } }),
+        el('button', { class: 'btn', text: 'Stop', onclick: stopSorting })
+      ])
+    ]));
+
+    UI.fitStage();
+    drawDeck();
+  }
+
+  function drawDeck() {
+    if (deckCanvas) drawChamber(deckCanvas, 300, 310);
+    if (deckStats) drawStats(deckStats);
   }
 
   /* ---- Start / stop / power ---- */
@@ -1483,8 +1714,11 @@
     M.valve = true;
     M.feed = true;
     M.sim.running = true;
+    M.livePanel = true;
     logEvent('Sorting started on ' + title());
-    go('run');
+    /* Stay where you are. The sorting screen opens below the machine, so a
+       profile can be tuned while you watch what it does. */
+    render();
   }
 
   function stopSorting() {
@@ -1493,6 +1727,7 @@
     M.feed = false;
     logEvent('Sorting stopped');
     render();
+    UI.fitStage();
   }
 
   function powerOff() {
@@ -2443,20 +2678,17 @@
     root.innerHTML = '';
     currentNode = screens[M.screen]();
     root.appendChild(currentNode);
-    if (M.screen === 'run') {
-      /* The ejector LED display sits right at the ejector line. */
-      var bar = buildLedBar();
-      bar.style.left = '2px';
-      bar.style.right = '2px';
-      bar.style.top = (GEOM.ejectY + 6) + 'px';
-      currentNode.querySelector('.chamber').appendChild(bar);
-    } else if (M.screen === 'valvetest') {
+    if (M.screen === 'valvetest') {
+      /* Valve Test keeps the horizontal bar, which is where it belongs. */
       var vbar = buildLedBar();
       vbar.style.left = '110px';
       vbar.style.width = '540px';
       vbar.style.bottom = '48px';
       currentNode.appendChild(vbar);
     }
+
+    renderDeck();
+
     if (M.screen === 'run') drawRun(currentNode);
   }
 
@@ -2469,7 +2701,12 @@
     if (M.powered) {
       M.sim.step(dt, Profiles.working, GEOM);
       if (M.screen === 'run') drawRun(currentNode);
-      if ((M.screen === 'viewimage' || M.screen === 'whitebalance') && currentNode._camCanvas) {
+      drawDeck();
+      if (M.screen === 'translation' && currentNode._traceCanvas) {
+        drawTrace(currentNode._traceCanvas, Profiles.working[M.sensTab]);
+      }
+      if ((M.screen === 'viewimage' || M.screen === 'whitebalance' ||
+           M.screen === 'bgplate') && currentNode._camCanvas) {
         drawCam(currentNode._camCanvas, { box: !!currentNode._camBox });
       }
       updateLeds();
