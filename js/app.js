@@ -2709,6 +2709,18 @@
     if (M.screen === 'run') drawRun(currentNode);
   }
 
+  /* Light each ejector LED while the simulator's flash timer for it runs (sorting, valve tests). */
+  function updateLeds() {
+    var flash = M.sim.ejectorFlash;
+    var rows = document.querySelectorAll('.led-bar .led-row, .led-cols .led-row');
+    for (var r = 0; r < rows.length; r++) {
+      var leds = rows[r].children;
+      for (var i = 0; i < leds.length; i++) {
+        var on = flash[i] > 0;
+        if (leds[i].classList.contains('fire') !== on) leds[i].classList.toggle('fire', on);
+      }
+    }
+  }
   /* ---------------- main loop ---------------- */
   var last = performance.now();
   function frame(now) {
